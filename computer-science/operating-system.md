@@ -1,289 +1,105 @@
-# 操作系统基础知识结构速记
+# 操作系统
+## 目录
+1. 操作系统基础
+2. 进程与线程
+3. CPU 调度
+4. 同步、互斥与死锁
+5. 内存管理
+6. 文件与磁盘
+7. I/O 系统
 
-> 本篇由两份操作系统笔记合并整理。
->
-> 主线：
+> 学习主线：**操作系统基础 → 进程与线程 → CPU 调度 → 同步、互斥与死锁 → 内存管理 → 文件与磁盘 → I/O 系统**
 
-```text
-操作系统基础
-   ↓
-进程与线程
-   ↓
-CPU 调度
-   ↓
-同步、互斥与死锁
-   ↓
-内存管理
-   ↓
-文件系统
-   ↓
-I/O 系统
-```
-
-核心理解：
-
+### 知识地图
 ```text
 OS
-│
-├── CPU
-│   ├── Process
-│   ├── Thread
-│   └── Scheduling
-│
-├── Concurrency
-│   ├── Mutex
-│   ├── Semaphore
-│   └── Deadlock
-│
-├── Memory
-│   ├── Virtual Memory
-│   ├── Paging / TLB
-│   ├── Page Fault
-│   └── COW / OOM
-│
-├── Storage
-│   └── File System
-│
-└── I/O
-    ├── Interrupt
-    ├── select / poll / epoll
-    └── Zero-Copy
+├── 基础：用户态 / 内核态、系统调用、中断、内核结构
+├── CPU：进程 / 线程、调度、同步、死锁
+├── Memory：地址转换、分页 / 分段、虚拟内存、COW
+├── Storage：文件系统、inode / FD、磁盘调度
+└── I/O：设备控制、I/O 模型、epoll、Zero-Copy
 ```
-
----
 
 # 操作系统基础
-
 ## 操作系统定义
+操作系统（Operating System）
 
-操作系统：
-
-```text
-Operating System
-```
-
-作用：
-
-```text
-管理硬件资源
-管理软件资源
-组织任务执行
-完成资源分配
-向应用程序提供统一接口
-```
+作用：管理硬件资源、管理软件资源、组织任务执行、完成资源分配、向应用程序提供统一接口
 
 一句话：
 
 > **操作系统 = 硬件资源管理者 + 应用程序运行环境。**
 
----
-
 ## 操作系统四个基本特征
-
-```text
-并发
-共享
-虚拟
-异步
-```
-
----
+并发、共享、虚拟、异步
 
 ### 并发
-
-```text
 Concurrency
-```
 
-多个事件：
+多个事件：在同一时间段内推进
 
-```text
-在同一时间段内推进
-```
+单核 CPU：宏观并发、微观交替
 
-单核 CPU：
+多核 CPU：还可以真正并行
 
-```text
-宏观并发
-微观交替
-```
-
-多核 CPU：
-
-```text
-还可以真正并行
-```
-
-注意：
-
-```text
-并发
-≠
-并行
-```
-
----
+注意：并发、≠、并行
 
 ### 共享
+多个进程：共同使用系统资源
 
-多个进程：
-
-```text
-共同使用系统资源
-```
-
-分为：
-
-```text
-互斥共享
-同时共享
-```
-
----
+分为：互斥共享、同时共享
 
 ### 虚拟
+把：一个物理资源
 
-把：
+抽象成：多个逻辑资源
 
-```text
-一个物理资源
-```
-
-抽象成：
-
-```text
-多个逻辑资源
-```
-
-例如：
-
-```text
-Virtual Memory
-Virtual CPU
-```
-
----
+例如：Virtual Memory、Virtual CPU
 
 ### 异步
+进程执行会走走停停、速度不可预知，因此需要同步和调度机制保证正确运行。
+## 操作系统功能与接口
+操作系统既是**资源管理者**，也是用户 / 应用与硬件之间的接口：
 
-进程：
+- **资源管理**：处理机、内存、文件、设备。
+- **命令接口**：用户直接与系统交互。
+- **程序接口**：应用通过系统调用请求内核服务。
+- **GUI**：图形界面最终仍通过系统提供的能力完成操作。
 
-```text
-走走停停
-执行速度不可预知
-```
+### 常见系统类型
+- **批处理系统**：按批处理作业，交互性弱；多道程序可提高 CPU 利用率。
+- **分时系统**：以时间片轮转等方式让多个用户 / 任务交互使用系统，强调响应时间。
+- **实时系统**：要求任务在规定时间内完成，强调及时性和可靠性。
 
-因此需要：
+## 用户态与内核态
+CPU 通常区分 **User Mode（用户态）** 和 **Kernel Mode（内核态）**。
 
-```text
-同步机制
-调度机制
-```
+### 用户态
+应用程序运行在：较低权限
 
-保证程序正确运行。
+不能直接执行：特权指令
 
----
+也不能直接操作：关键硬件资源
 
-# 用户态与内核态
+### 内核态
+内核态权限较高，可执行特权指令并直接管理硬件和系统资源。
 
-CPU 通常至少区分：
+可以：访问硬件、管理页表、处理中断、进行进程调度、执行设备 I/O
 
-```text
-User Mode
-Kernel Mode
-```
+### 为什么区分两种状态
+主要：保护系统资源、隔离应用程序、防止普通程序直接破坏系统
 
----
-
-## 用户态
-
-应用程序运行在：
-
-```text
-较低权限
-```
-
-不能直接执行：
-
-```text
-特权指令
-```
-
-也不能直接操作：
-
-```text
-关键硬件资源
-```
-
----
-
-## 内核态
-
-操作系统内核运行在：
-
-```text
-高权限模式
-```
-
-可以：
-
-```text
-访问硬件
-管理页表
-处理中断
-进行进程调度
-执行设备 I/O
-```
-
----
-
-## 为什么区分两种状态
-
-主要：
-
-```text
-保护系统资源
-隔离应用程序
-防止普通程序直接破坏系统
-```
-
----
-
-# 特权指令
-
-只能在：
-
-```text
-Kernel Mode
-```
+## 特权指令
+只能在：Kernel Mode
 
 执行。
 
-例如：
+例如：修改页表、关闭 / 开启中断、访问特权寄存器、直接控制设备
 
-```text
-修改页表
-关闭 / 开启中断
-访问特权寄存器
-直接控制设备
-```
+普通应用程序：不能直接执行
 
-普通应用程序：
-
-```text
-不能直接执行
-```
-
----
-
-# 系统调用
-
-System Call：
-
-```text
-应用程序请求内核服务
-的受控接口
-```
+## 系统调用
+System Call：应用程序请求内核服务的受控接口。
 
 例如：
 
@@ -296,18 +112,8 @@ mmap
 socket
 ```
 
----
-
-## 为什么需要系统调用
-
-应用不能直接：
-
-```text
-操作磁盘
-管理页表
-创建进程
-控制设备
-```
+### 为什么需要系统调用
+应用不能直接：操作磁盘、管理页表、创建进程、控制设备
 
 而是：
 
@@ -321,30 +127,12 @@ Kernel
 完成操作
 ```
 
-这样：
+这样：统一管理资源、保证安全、保证隔离
 
-```text
-统一管理资源
-保证安全
-保证隔离
-```
+### 系统调用常见分类
+Process Control、File Management、Device Management、Memory Management、Communication
 
----
-
-## 系统调用常见分类
-
-```text
-Process Control
-File Management
-Device Management
-Memory Management
-Communication
-```
-
----
-
-# 中断与异常
-
+## 中断与异常
 不要把所有进入内核的情况都混成一个概念。
 
 可以这样理解：
@@ -356,103 +144,38 @@ Communication
 └── Hardware Interrupt
 ```
 
----
-
-## Hardware Interrupt
-
+### Hardware Interrupt
 外部异步事件。
 
-例如：
+例如：Keyboard、Network Card、Disk、Timer
 
-```text
-Keyboard
-Network Card
-Disk
-Timer
-```
+特点：与当前正在执行的指令、不一定有直接关系
 
-特点：
-
-```text
-与当前正在执行的指令
-不一定有直接关系
-```
-
----
-
-## Exception
-
-由：
-
-```text
-当前指令执行
-```
+### Exception
+由：当前指令执行
 
 引起。
 
-常见：
+常见：Trap、Fault、Abort
 
-```text
-Trap
-Fault
-Abort
-```
+### Trap
+有意触发、通常执行后返回下一条指令
 
----
+典型：调试 Trap、某些系统调用入口机制
 
-## Trap
-
-```text
-有意触发
-通常执行后返回下一条指令
-```
-
-典型：
-
-```text
-调试 Trap
-某些系统调用入口机制
-```
-
----
-
-## Fault
-
-```text
+### Fault
 当前指令尚未正常完成
-```
 
-处理成功后：
+处理成功后：可以重新执行当前指令
 
-```text
-可以重新执行当前指令
-```
+典型：Page Fault
 
-典型：
+### Abort
+严重错误、通常无法恢复
 
-```text
-Page Fault
-```
+程序可能：直接终止
 
----
-
-## Abort
-
-```text
-严重错误
-通常无法恢复
-```
-
-程序可能：
-
-```text
-直接终止
-```
-
----
-
-# 中断处理基本流程
-
+## 中断处理基本流程
 ```text
 发生 Interrupt / Exception
    ↓
@@ -470,41 +193,15 @@ CPU 保存必要现场
 继续执行 / 调度其他任务
 ```
 
----
+### 中断作用
+如果没有中断：CPU、只能不断轮询设备
 
-## 中断作用
+有中断：设备有事、→ 主动通知 CPU
 
-如果没有中断：
+提高：CPU 利用率、响应能力、并发能力
 
-```text
-CPU
-只能不断轮询设备
-```
-
-有中断：
-
-```text
-设备有事
-→ 主动通知 CPU
-```
-
-提高：
-
-```text
-CPU 利用率
-响应能力
-并发能力
-```
-
----
-
-# 操作系统内核
-
-Kernel：
-
-```text
-操作系统最核心部分
-```
+## 操作系统内核与结构
+Kernel：操作系统最核心部分
 
 主要：
 
@@ -518,54 +215,32 @@ Scheduling
 System Call
 ```
 
----
+### 大内核与微内核
+- **大内核（Monolithic Kernel）**：大量系统服务运行在内核态，调用链短、性能高，但内核内部耦合更强。
+- **微内核（Microkernel）**：只把核心机制放在内核，其余服务尽量放到用户态，隔离性和可扩展性更好，但可能增加通信和上下文切换开销。
+
+### 原语
+**原语（Primitive）**是操作系统底层不可分割的一组操作，执行时间短、调用频繁，用于实现进程控制、同步等关键机制。P / V 操作可以理解为典型的原子同步操作。
 
 # 进程与线程
+## 程序与进程
+Program：静态的可执行文件
 
-## 程序 vs 进程
+Process：程序的一次运行实例
 
-Program：
+所以：程序、→ 静态、进程、→ 动态
 
-```text
-静态的可执行文件
-```
-
-Process：
-
-```text
-程序的一次运行实例
-```
-
-所以：
-
-```text
-程序
-→ 静态
-
-进程
-→ 动态
-```
-
----
-
-# 进程
-
-进程主要用于：
-
-```text
-资源隔离
-资源分配
-程序运行
-```
+## 进程
+进程主要用于：资源隔离、资源分配、程序运行
 
 可以简单理解：
 
 > **进程是资源拥有与隔离的基本单位。**
 
----
+#### 进程的基本特征
+进程具有**动态性、并发性、独立性、异步性和结构性**。其中动态性是最基本特征；进程实体通常由程序段、数据段和 PCB 组成。
 
 ## 进程组成
-
 经典：
 
 ```text
@@ -575,15 +250,8 @@ Process
 └── Data
 ```
 
----
-
-# PCB
-
-PCB：
-
-```text
-Process Control Block
-```
+## PCB
+PCB：Process Control Block
 
 操作系统描述和管理进程的数据结构。
 
@@ -605,19 +273,8 @@ Parent / Child Relation
 
 > **PCB = 操作系统眼中的进程。**
 
----
-
-# 进程状态
-
-经典五状态：
-
-```text
-New
-Ready
-Running
-Blocked
-Terminated
-```
+## 进程状态
+经典五状态：New、Ready、Running、Blocked、Terminated
 
 转换：
 
@@ -636,96 +293,40 @@ Blocked
 Ready
 ```
 
----
+#### Ready 与 Blocked
+Ready：什么都准备好了、只差 CPU
 
-## Ready vs Blocked
+Blocked：即使给 CPU、也暂时无法继续
 
-Ready：
+例如：等待 I/O、等待锁、等待事件
 
-```text
-什么都准备好了
-只差 CPU
-```
+### 进程创建、阻塞、唤醒与终止
+- **创建**：为新进程建立 PCB、分配必要资源并进入就绪状态。
+- **阻塞**：运行中的进程因等待 I/O、资源或事件而主动进入阻塞态。
+- **唤醒**：等待条件满足后，由系统将阻塞进程转为就绪态。
+- **终止**：正常完成、异常错误或外部干预都可能结束进程并回收资源。
 
-Blocked：
+> **调度是“决定谁运行”，切换是“真正保存 / 恢复上下文并换人运行”。**
 
-```text
-即使给 CPU
-也暂时无法继续
-```
+## 线程
+Thread：进程中的执行单元
 
-例如：
-
-```text
-等待 I/O
-等待锁
-等待事件
-```
-
----
-
-# 线程
-
-Thread：
-
-```text
-进程中的执行单元
-```
-
-一个进程：
-
-```text
-可以有多个线程
-```
+一个进程：可以有多个线程
 
 可以简单理解：
 
 > **线程主要解决一个进程内部多个执行流并发的问题。**
 
----
+### 线程共享什么
+同一进程中的线程通常共享：Virtual Address Space、Code、Heap、Global Data、Open Files
 
-## 线程共享什么
+### 每个线程独有
+Thread Stack、Registers、Program Counter、Scheduling State、Thread Local Storage
 
-同一进程中的线程通常共享：
+所以：线程共享进程资源、但拥有独立执行现场
 
-```text
-Virtual Address Space
-Code
-Heap
-Global Data
-Open Files
-```
-
----
-
-## 每个线程独有
-
-```text
-Thread Stack
-Registers
-Program Counter
-Scheduling State
-Thread Local Storage
-```
-
-所以：
-
-```text
-线程共享进程资源
-但拥有独立执行现场
-```
-
----
-
-# 进程与线程区别
-
-```text
-Process
-→ Resource Ownership / Isolation
-
-Thread
-→ Scheduling / Execution
-```
+## 进程与线程区别
+Process；→ Resource Ownership / Isolation；Thread；→ Scheduling / Execution
 
 对比：
 
@@ -738,891 +339,301 @@ Thread
 | 切换开销 | 通常较大 | 同进程线程通常较小 |
 | 崩溃影响 | 通常隔离较好 | 一个线程严重错误可能拖垮整个进程 |
 
-一句话：
+一句话：进程、→ 隔离、线程、→ 并发
 
-```text
-进程
-→ 隔离
+## 用户级线程与内核级线程
+- **用户级线程（ULT）**：线程管理主要在用户态完成，切换开销小；若采用多对一模型，一个线程发生阻塞可能影响整个进程。
+- **内核级线程（KLT）**：由内核直接管理和调度，可在多核 CPU 上并行执行；线程调度 / 切换需要内核参与。
 
-线程
-→ 并发
-```
+Kernel Thread：由 OS Kernel、直接管理
 
----
+内核为线程维护：TCB、Scheduling State、CPU Context
 
-# 内核级线程
+优点：线程阻塞、不会阻塞同进程其他线程、支持多核真正并行
 
-Kernel Thread：
+缺点：线程调度 / 切换、需要内核参与
 
-```text
-由 OS Kernel
-直接管理
-```
+## 上下文切换
+Context Switch：CPU 从一个执行实体、切换到另一个
 
-内核为线程维护：
+需要保存 / 恢复：Registers、Program Counter、Stack Pointer、Scheduling State
 
-```text
-TCB
-Scheduling State
-CPU Context
-```
+### 线程切换
+同一进程内：Address Space、通常不需要切换
 
-优点：
+主要切：CPU Context、Thread Stack
 
-```text
-线程阻塞
-不会阻塞同进程其他线程
+### 进程切换
+除了 CPU Context：还涉及地址空间相关上下文
 
-支持多核真正并行
-```
+例如：Page Table / MMU Context
 
-缺点：
+还可能影响：TLB、CPU Cache Locality
 
-```text
-线程调度 / 切换
-需要内核参与
-```
+所以通常：Process Switch、>、Thread Switch
 
----
+但不是因为：每次都复制全局变量、或文件描述符
 
-# 上下文切换
+## 进程间通信 IPC
+IPC：Inter-Process Communication
 
-Context Switch：
+因为进程地址空间隔离：Process A、不能直接读、Process B 的私有地址空间
 
-```text
-CPU 从一个执行实体
-切换到另一个
-```
+所以需要：IPC Mechanism
 
-需要保存 / 恢复：
+### Pipe
+Pipe：内核中的字节流缓冲区
 
-```text
-Registers
-Program Counter
-Stack Pointer
-Scheduling State
-```
+特点：FIFO、字节流、容量有限、经典匿名管道常用于有亲缘关系进程
 
----
+通常：单方向
 
-## 线程切换
+双向：创建两个 Pipe
 
-同一进程内：
+读空：Reader Block
 
-```text
-Address Space
-通常不需要切换
-```
+写满：Writer Block
 
-主要切：
+### Message Queue
+消息队列：Kernel 中保存多个 Message
 
-```text
-CPU Context
-Thread Stack
-```
+特点：消息有边界、可以按消息类型组织
 
----
+缺点：数据通常需要、User ↔ Kernel、复制
 
-## 进程切换
+### Shared Memory
+共享内存：多个进程、把同一组物理页、映射到各自地址空间
 
-除了 CPU Context：
+建立共享内存时：仍需要系统调用
 
-```text
-还涉及地址空间相关上下文
-```
+映射建立后：通信数据、不需要反复经过内核拷贝
 
-例如：
+因此：速度很高
 
-```text
-Page Table / MMU Context
-```
+但：多个进程同时读写、→ Race Condition
 
-还可能影响：
+需要：Semaphore、Mutex、其他同步机制
 
-```text
-TLB
-CPU Cache Locality
-```
+### Semaphore
+Semaphore：用于表示资源数量或进行同步协调的计数器。
 
-所以通常：
+主要：同步、互斥、资源数量控制
 
-```text
-Process Switch
->
-Thread Switch
-```
+经典操作：P / wait、V / signal
 
-但不是因为：
+记：Semaphore、→ 协调
 
-```text
-每次都复制全局变量
-或文件描述符
-```
+> **注意：** Semaphore 常被列在 IPC / 进程协作机制中，但它主要用于**同步、互斥和资源计数**，本身不负责传输业务数据。
 
----
+### Signal
+Signal：异步事件通知机制
 
-# 进程间通信 IPC
+例如：SIGINT、SIGTERM、SIGKILL、SIGCHLD
 
-IPC：
+进程收到 Signal 后：Default Action、Catch、Ignore
 
-```text
-Inter-Process Communication
-```
+部分 Signal：不能被捕获或忽略
 
-因为进程地址空间隔离：
+例如：SIGKILL、SIGSTOP
 
-```text
-Process A
-不能直接读
-Process B 的私有地址空间
-```
+记：Signal、→ 通知、Semaphore、→ 协调
 
-所以需要：
-
-```text
-IPC Mechanism
-```
-
----
-
-## Pipe
-
-Pipe：
-
-```text
-内核中的字节流缓冲区
-```
-
-特点：
-
-```text
-FIFO
-字节流
-容量有限
-经典匿名管道常用于有亲缘关系进程
-```
-
-通常：
-
-```text
-单方向
-```
-
-双向：
-
-```text
-创建两个 Pipe
-```
-
-读空：
-
-```text
-Reader Block
-```
-
-写满：
-
-```text
-Writer Block
-```
-
----
-
-## Message Queue
-
-消息队列：
-
-```text
-Kernel 中保存多个 Message
-```
-
-特点：
-
-```text
-消息有边界
-可以按消息类型组织
-```
-
-缺点：
-
-```text
-数据通常需要
-User ↔ Kernel
-复制
-```
-
----
-
-## Shared Memory
-
-共享内存：
-
-```text
-多个进程
-把同一组物理页
-映射到各自地址空间
-```
-
-建立共享内存时：
-
-```text
-仍需要系统调用
-```
-
-映射建立后：
-
-```text
-通信数据
-不需要反复经过内核拷贝
-```
-
-因此：
-
-```text
-速度很高
-```
-
-但：
-
-```text
-多个进程同时读写
-→ Race Condition
-```
-
-需要：
-
-```text
-Semaphore
-Mutex
-其他同步机制
-```
-
----
-
-## Semaphore
-
-Semaphore：
-
-```text
-计数器
-```
-
-主要：
-
-```text
-同步
-互斥
-资源数量控制
-```
-
-经典操作：
-
-```text
-P / wait
-V / signal
-```
-
-记：
-
-```text
-Semaphore
-→ 协调
-```
-
----
-
-## Signal
-
-Signal：
-
-```text
-异步事件通知机制
-```
-
-例如：
-
-```text
-SIGINT
-SIGTERM
-SIGKILL
-SIGCHLD
-```
-
-进程收到 Signal 后：
-
-```text
-Default Action
-Catch
-Ignore
-```
-
-部分 Signal：
-
-```text
-不能被捕获或忽略
-```
-
-例如：
-
-```text
-SIGKILL
-SIGSTOP
-```
-
-记：
-
-```text
-Signal
-→ 通知
-
-Semaphore
-→ 协调
-```
-
----
-
-## Socket
-
-Socket：
-
-```text
-本机进程
-或
-不同主机进程
-```
+### Socket
+Socket：本机进程、或、不同主机进程
 
 都可以通信。
 
-常见：
-
-```text
-TCP Socket
-UDP Socket
-Unix Domain Socket
-```
-
----
+常见：TCP Socket、UDP Socket、Unix Domain Socket
 
 # CPU 调度
+## 调度目标与常用指标
+常见指标：
+
+- **CPU 利用率**：CPU 忙碌时间占比。
+- **吞吐量**：单位时间完成的作业数。
+- **周转时间** = 完成时间 - 提交时间。
+- **带权周转时间** = 周转时间 / 实际运行时间。
+- **等待时间**：任务在就绪队列中等待 CPU 的总时间。
+- **响应时间**：从请求提交到第一次得到响应的时间。
+
+不同场景侧重点不同：批处理更关注吞吐量和周转时间，交互系统更关注响应时间。
 
 ## 调度层次
-
-经典：
-
-```text
-高级调度
-中级调度
-低级调度
-```
-
----
+经典：高级调度、中级调度、低级调度
 
 ## 高级调度
+又称：Job Scheduling
 
-又称：
+决定：哪些作业、从外存进入内存
 
-```text
-Job Scheduling
-```
-
-决定：
-
-```text
-哪些作业
-从外存进入内存
-```
-
-频率：
-
-```text
-最低
-```
-
----
+频率：最低
 
 ## 中级调度
+又称：Memory Scheduling
 
-又称：
+决定：哪些挂起进程、重新调入内存
 
-```text
-Memory Scheduling
-```
-
-决定：
-
-```text
-哪些挂起进程
-重新调入内存
-```
-
-与：
-
-```text
-Swap
-```
+与：Swap
 
 相关。
 
----
-
 ## 低级调度
+又称：CPU Scheduling、Process Scheduling
 
-又称：
+决定：Ready Queue 中、谁获得 CPU
 
-```text
-CPU Scheduling
-Process Scheduling
-```
+频率：最高
 
-决定：
+## 调度时机
+进程主动放弃 CPU：Exit、Block、Wait I/O、Wait Lock
 
-```text
-Ready Queue 中
-谁获得 CPU
-```
+被动失去 CPU：Time Slice Exhausted、Higher Priority Task、Interrupt / Preemption
 
-频率：
+### 调度与切换
+Scheduling；→ 做决策：下一个运行谁；Context Switch；→ 做动作：保存当前上下文，恢复下一个上下文
 
-```text
-最高
-```
+发生调度不一定立刻意味着完成一次进程切换，但真正换运行实体时需要执行上下文切换。
 
----
+## 抢占式与非抢占式
+### Preemptive
+OS、可以强制收回 CPU
 
-# 调度时机
+适合：Interactive System、Real-Time System、Modern General OS
 
-进程主动放弃 CPU：
-
-```text
-Exit
-Block
-Wait I/O
-Wait Lock
-```
-
-被动失去 CPU：
-
-```text
-Time Slice Exhausted
-Higher Priority Task
-Interrupt / Preemption
-```
-
----
-
-# 抢占式与非抢占式
-
-## Preemptive
-
-```text
-OS
-可以强制收回 CPU
-```
-
-适合：
-
-```text
-Interactive System
-Real-Time System
-Modern General OS
-```
-
----
-
-## Non-Preemptive
-
-```text
-进程主动释放 CPU
-之后才切换
-```
+### Non-Preemptive
+进程主动释放 CPU、之后才切换
 
 实现简单。
 
----
-
-# 调度算法
-
-## FCFS
-
-```text
+## 调度算法
+### FCFS
 First Come First Served
-```
 
 先到先执行。
 
-优点：
+优点：简单
 
-```text
-简单
-```
+缺点：Convoy Effect、长任务可能拖累短任务
 
-缺点：
-
-```text
-Convoy Effect
-长任务可能拖累短任务
-```
-
----
-
-## SJF
-
-```text
+### SJF
 Shortest Job First
-```
 
 最短作业优先。
 
-优点：
+优点：理论上可降低平均等待时间
 
-```text
-理论上可降低平均等待时间
-```
+缺点：需要预测运行时间、长任务可能饥饿
 
-缺点：
-
-```text
-需要预测运行时间
-长任务可能饥饿
-```
-
----
-
-## HRRN
-
-```text
+### HRRN
 Highest Response Ratio Next
-```
 
-响应比：
+响应比：(Waiting Time + Service Time)、/、Service Time
 
-```text
-(Waiting Time + Service Time)
-/
-Service Time
-```
+等待越久：优先级逐渐提高
 
-等待越久：
-
-```text
-优先级逐渐提高
-```
-
----
-
-## RR
-
-```text
+### RR
 Round Robin
-```
 
-每个进程：
+每个进程：获得一个 Time Quantum
 
-```text
-获得一个 Time Quantum
-```
+时间片用完：重新排到 Ready Queue
 
-时间片用完：
+适合：Interactive / Time-Sharing
 
-```text
-重新排到 Ready Queue
-```
+### Priority Scheduling
+优先级高、先执行
 
-适合：
+问题：低优先级任务、可能 Starvation
 
-```text
-Interactive / Time-Sharing
-```
+解决：Aging
 
----
-
-## Priority Scheduling
-
-```text
-优先级高
-先执行
-```
-
-问题：
-
-```text
-低优先级任务
-可能 Starvation
-```
-
-解决：
-
-```text
-Aging
-```
-
----
-
-## MLFQ
-
-```text
+### MLFQ
 Multi-Level Feedback Queue
-```
 
-核心：
+核心：多个优先级队列、+、动态调整优先级
 
-```text
-多个优先级队列
-+
-动态调整优先级
-```
+典型思想：交互型短任务、→ 高优先级、持续占用 CPU 的任务、→ 逐渐下降
 
-典型思想：
+兼顾：响应时间、吞吐量、公平性
 
-```text
-交互型短任务
-→ 高优先级
+## 多核调度
+常见：Global Run Queue、Per-CPU Run Queue
 
-持续占用 CPU 的任务
-→ 逐渐下降
-```
+### 公共就绪队列
+优点：天然容易负载均衡
 
-兼顾：
+缺点：全局锁竞争、CPU Cache Affinity 较差
 
-```text
-响应时间
-吞吐量
-公平性
-```
+### Per-CPU Queue
+优点：Cache Affinity 好、竞争更小
 
----
+问题：CPU 之间可能负载不均
 
-# 多核调度
-
-常见：
-
-```text
-Global Run Queue
-Per-CPU Run Queue
-```
-
----
-
-## 公共就绪队列
-
-优点：
-
-```text
-天然容易负载均衡
-```
-
-缺点：
-
-```text
-全局锁竞争
-CPU Cache Affinity 较差
-```
-
----
-
-## Per-CPU Queue
-
-优点：
-
-```text
-Cache Affinity 好
-竞争更小
-```
-
-问题：
-
-```text
-CPU 之间可能负载不均
-```
-
-因此需要：
-
-```text
-Load Balancing
-```
-
----
+因此需要：Load Balancing
 
 # 同步、互斥与死锁
-
 ## Race Condition
+多个线程 / 进程：同时访问共享可变数据
 
-多个线程 / 进程：
+最终结果：依赖执行时序
 
-```text
-同时访问共享可变数据
-```
+就产生：Race Condition
 
-最终结果：
+## Critical Section
+访问共享临界资源的代码区域：Critical Section
 
-```text
-依赖执行时序
-```
+目标：同一时刻、只允许满足规则的线程进入
 
-就产生：
+经典原则：空闲让进、忙则等待、有限等待、让权等待
 
-```text
-Race Condition
-```
+## 互斥实现方法
+经典互斥实现可以分为：
 
----
+- **软件方法**：如 Peterson 算法，通过共享标志和让步规则协调两个执行者。
+- **硬件原子指令**：如 Test-and-Set、Swap、CAS，为自旋锁和许多无锁算法提供基础。
 
-# Critical Section
+软件 / 自旋类方案可能存在忙等；阻塞型 Mutex 则会在等待时间较长时让线程睡眠。
 
-访问共享临界资源的代码区域：
+## Mutex
+Mutex：Mutual Exclusion Lock、互斥锁
 
-```text
-Critical Section
-```
+特点：同一时刻、只有一个线程持有
 
-目标：
+其他竞争者：阻塞 / 等待
 
-```text
-同一时刻
-只允许满足规则的线程进入
-```
+适合：临界区可能执行较久
 
-经典原则：
-
-```text
-空闲让进
-忙则等待
-有限等待
-让权等待
-```
-
----
-
-# Mutex
-
-Mutex：
-
-```text
-Mutual Exclusion Lock
-互斥锁
-```
-
-特点：
-
-```text
-同一时刻
-只有一个线程持有
-```
-
-其他竞争者：
-
-```text
-阻塞 / 等待
-```
-
-适合：
-
-```text
-临界区可能执行较久
-```
-
----
-
-# Spinlock
-
-Spinlock：
-
-```text
-获取不到锁
-→ Busy Waiting
-```
+## Spinlock
+Spinlock：获取不到锁、→ Busy Waiting
 
 不主动睡眠。
 
-特点：
+特点：避免 Sleep / Wakeup 开销、但会持续占 CPU
 
-```text
-避免 Sleep / Wakeup 开销
-但会持续占 CPU
-```
+适合：临界区很短、等待时间很短、多核环境
 
-适合：
+不适合：长时间持锁
 
-```text
-临界区很短
-等待时间很短
-多核环境
-```
+### CAS
+Spinlock 常依赖：CAS、Compare-And-Swap
 
-不适合：
+CAS：硬件提供的原子操作
 
-```text
-长时间持锁
-```
-
----
-
-## CAS
-
-Spinlock 常依赖：
-
-```text
-CAS
-Compare-And-Swap
-```
-
-CAS：
-
-```text
-硬件提供的原子操作
-```
-
-可以：
-
-```text
-检查值
-+
-更新值
-```
+可以：检查值、+、更新值
 
 一次完成。
 
----
+## Read-Write Lock
+Read Lock、Write Lock
 
-# Read-Write Lock
+规则：多个 Reader、可以并发、Writer、通常独占
 
-```text
-Read Lock
-Write Lock
-```
+适合：Read Much、Write Less
 
-规则：
+## Condition Variable
+Condition Variable：等待某个条件成立
 
-```text
-多个 Reader
-可以并发
-
-Writer
-通常独占
-```
-
-适合：
-
-```text
-Read Much
-Write Less
-```
-
----
-
-# Condition Variable
-
-Condition Variable：
-
-```text
-等待某个条件成立
-```
-
-通常配合：
-
-```text
-Mutex
-```
+通常配合：Mutex
 
 使用。
 
@@ -1642,68 +653,26 @@ Thread B
 → unlock
 ```
 
-被唤醒线程：
+被唤醒线程：重新获得 Mutex、后继续执行
 
-```text
-重新获得 Mutex
-后继续执行
-```
+## Semaphore
+Semaphore 可以表示：可用资源数量
 
----
+例如：S = 3
 
-# Semaphore
+表示：最多 3 个执行者、同时使用资源
 
-Semaphore 可以表示：
-
-```text
-可用资源数量
-```
-
-例如：
-
-```text
-S = 3
-```
-
-表示：
-
-```text
-最多 3 个执行者
-同时使用资源
-```
-
----
-
-## Binary Semaphore
-
-```text
+### Binary Semaphore
 0 / 1
-```
 
-可用于：
+可用于：互斥
 
-```text
-互斥
-```
-
----
-
-## Counting Semaphore
-
-```text
+### Counting Semaphore
 N
-```
 
-用于：
+用于：限制并发数量
 
-```text
-限制并发数量
-```
-
----
-
-# Monitor
-
+## Monitor
 Monitor：
 
 ```text
@@ -1716,68 +685,33 @@ Condition Variable
 对共享数据的操作
 ```
 
-它把：
-
-```text
-共享状态
-和
-同步规则
-```
+它把：共享状态、和、同步规则
 
 封装在一起。
 
----
+## 经典同步问题
+经典题型主要用于理解 Semaphore / Monitor 的组合使用：
 
-# Deadlock
+- **生产者-消费者**：既要保证缓冲区访问互斥，又要协调“非空 / 非满”。
+- **读者-写者**：允许多个读者并发，但写者通常要求独占。
+- **哲学家进餐**：展示多个资源获取顺序不当可能导致死锁。
 
-Deadlock：
+重点不是死记代码，而是先判断：**哪些是互斥关系，哪些是前驱 / 同步关系。**
 
-```text
-多个进程 / 线程
-互相等待对方持有的资源
-```
+## Deadlock
+Deadlock：多个进程 / 线程、互相等待对方持有的资源
 
-最终：
+最终：所有参与者都无法继续
 
-```text
-所有参与者都无法继续
-```
+## 死锁四个必要条件
+Mutual Exclusion、Hold and Wait、No Preemption、Circular Wait
 
----
+即：互斥、持有并等待、不可剥夺、循环等待
 
-# 死锁四个必要条件
+四个同时存在：才可能发生死锁
 
-```text
-Mutual Exclusion
-Hold and Wait
-No Preemption
-Circular Wait
-```
-
-即：
-
-```text
-互斥
-持有并等待
-不可剥夺
-循环等待
-```
-
-四个同时存在：
-
-```text
-才可能发生死锁
-```
-
----
-
-# 死锁预防
-
-Prevention：
-
-```text
-主动破坏四个必要条件之一
-```
+## 死锁预防
+Prevention：主动破坏四个必要条件之一
 
 例如：
 
@@ -1792,47 +726,17 @@ Prevention：
 → 破坏 No Preemption
 ```
 
----
+## 死锁避免
+Avoidance：不直接破坏必要条件
 
-# 死锁避免
+而是：每次分配资源之前、判断分配后是否仍处于安全状态
 
-Avoidance：
+典型：Banker's Algorithm
 
-```text
-不直接破坏必要条件
-```
+## 银行家算法
+核心：Available、Max、Allocation、Need
 
-而是：
-
-```text
-每次分配资源之前
-判断分配后是否仍处于安全状态
-```
-
-典型：
-
-```text
-Banker's Algorithm
-```
-
----
-
-# 银行家算法
-
-核心：
-
-```text
-Available
-Max
-Allocation
-Need
-```
-
-其中：
-
-```text
-Need = Max - Allocation
-```
+其中：Need = Max - Allocation
 
 每次资源请求：
 
@@ -1848,101 +752,51 @@ Need = Max - Allocation
 → 等待
 ```
 
----
-
-## 安全状态
-
-```text
+### 安全状态
 存在一个 Safe Sequence
-```
 
-意味着：
+意味着：所有进程、都可以按某种顺序完成
 
-```text
-所有进程
-都可以按某种顺序完成
-```
+### 不安全状态
+注意：Unsafe、≠、已经 Deadlock
 
----
+只是：存在未来死锁风险
 
-## 不安全状态
+## 死锁检测与解除
+如果允许死锁发生：Detect、+、Recover
 
-注意：
+解除方式：Resource Preemption、Terminate Process、Rollback
 
-```text
-Unsafe
-≠
-已经 Deadlock
-```
-
-只是：
-
-```text
-存在未来死锁风险
-```
-
----
-
-# 死锁检测与解除
-
-如果允许死锁发生：
-
-```text
-Detect
-+
-Recover
-```
-
-解除方式：
-
-```text
-Resource Preemption
-Terminate Process
-Rollback
-```
-
----
+### 死锁、饥饿与不安全状态
+- **死锁**：多个执行者形成循环等待，参与者都无法继续。
+- **饥饿**：某个执行者长期得不到资源或 CPU，但系统整体仍可能运行。
+- **不安全状态**：不能保证存在安全序列，表示有死锁风险，**不等于已经死锁**。
 
 # 内存管理
-
 ## 操作系统内存管理职责
+主要：分配与回收、地址转换、内存保护、虚拟内存、共享
 
-主要：
+## 程序装入、链接与重定位
+程序从源码到运行可以粗略理解为：Source、→ Compile、→ Link、→ Load、→ Execute
 
-```text
-分配与回收
-地址转换
-内存保护
-虚拟内存
-共享
-```
+**链接方式：**
+- 静态链接：运行前把目标模块和库连接成完整程序。
+- 装入时动态链接：模块装入内存时再链接。
+- 运行时动态链接：真正使用某模块时再完成链接，现代系统更常见。
 
----
+**装入 / 重定位：**
+- 绝对装入：编译时就确定实际地址，灵活性低。
+- 可重定位装入（静态重定位）：装入时一次完成地址修正，运行后通常不再移动。
+- 动态运行时装入：运行过程中通过硬件地址转换把逻辑地址映射到物理地址，更适合现代多任务系统。
 
-# 虚拟地址空间
+## 虚拟地址空间
+每个进程通常看到：独立 Virtual Address Space
 
-每个进程通常看到：
+进程使用：Virtual Address
 
-```text
-独立 Virtual Address Space
-```
+CPU / MMU 最终访问：Physical Address
 
-进程使用：
-
-```text
-Virtual Address
-```
-
-CPU / MMU 最终访问：
-
-```text
-Physical Address
-```
-
----
-
-# 程序典型内存布局
-
+## 程序典型内存布局
 典型用户空间：
 
 ```text
@@ -1967,399 +821,124 @@ High Address
 Low Address
 ```
 
----
+### Text
+保存：Machine Code
 
-## Text
+### Data
+保存：已初始化、全局变量 / 静态变量
 
-保存：
+### BSS
+保存：未显式初始化、或零初始化、的全局 / 静态变量
 
-```text
-Machine Code
-```
+### Heap
+用于：Dynamic Allocation
 
----
+例如：malloc、new
 
-## Data
+### mmap Area
+可能放：Shared Library、Memory-Mapped File、Anonymous Mapping、Shared Memory
 
-保存：
+### Stack
+保存：Stack Frame、Local Variable、Return Address、Saved Register、Function Call Context
 
-```text
-已初始化
-全局变量 / 静态变量
-```
+栈大小：受系统 / 进程配置限制
 
----
-
-## BSS
-
-保存：
-
-```text
-未显式初始化
-或零初始化
-的全局 / 静态变量
-```
-
----
-
-## Heap
-
-用于：
-
-```text
-Dynamic Allocation
-```
-
-例如：
-
-```text
-malloc
-new
-```
-
----
-
-## mmap Area
-
-可能放：
-
-```text
-Shared Library
-Memory-Mapped File
-Anonymous Mapping
-Shared Memory
-```
-
----
-
-## Stack
-
-保存：
-
-```text
-Stack Frame
-Local Variable
-Return Address
-Saved Register
-Function Call Context
-```
-
-栈大小：
-
-```text
-受系统 / 进程配置限制
-```
-
-不要把：
-
-```text
-8MB
-```
+不要把：8MB
 
 当作所有环境固定值。
 
----
-
-# Heap vs Stack
-
-## Heap
-
-```text
+## Heap 与 Stack
+### Heap
 动态分配区域
-```
 
-由：
-
-```text
-Allocator / Runtime
-```
+由：Allocator / Runtime
 
 管理。
 
-C：
+C：malloc/free
 
-```text
-malloc/free
-```
+Java：GC 管理对象生命周期
 
-Java：
-
-```text
-GC 管理对象生命周期
-```
-
----
-
-## Stack
-
-```text
+### Stack
 函数调用栈
-```
 
-一般：
+一般：Function Enter、→ 创建 Stack Frame、Function Return、→ 回收 Stack Frame
 
-```text
-Function Enter
-→ 创建 Stack Frame
+## 连续内存分配
+历史 / 教材模型：Single Continuous、Fixed Partition、Dynamic Partition
 
-Function Return
-→ 回收 Stack Frame
-```
+### 内部碎片
+已经分配给进程：但进程用不到的空间
 
----
+例如：固定分区、Page 内剩余空间
 
-# 连续内存分配
+### 外部碎片
+空闲空间很多：但不连续
 
-历史 / 教材模型：
+无法满足：大块连续内存申请
 
-```text
-Single Continuous
-Fixed Partition
-Dynamic Partition
-```
+## 动态分区算法
+经典：First Fit、Best Fit、Worst Fit、Next Fit
 
----
+### First Fit
+按地址：从头找第一个够大的分区
 
-## 内部碎片
+### Best Fit
+选择：最小但足够大的分区
 
-已经分配给进程：
+问题：容易留下很多小碎片
 
-```text
-但进程用不到的空间
-```
+### Worst Fit
+选择：最大的空闲分区
 
-例如：
+### Next Fit
+从：上次查找结束的位置、继续查找
 
-```text
-固定分区
-Page 内剩余空间
-```
+## 分页
+Paging：Virtual Memory、切成固定大小 Page、Physical Memory、切成同样大小 Frame
 
----
+Page：可以放到任意空闲 Frame
 
-## 外部碎片
+因此：不要求物理连续
 
-空闲空间很多：
+### Page Size
+x86 / x86-64 Linux：常见基础 Page Size、→ 4KB
 
-```text
-但不连续
-```
+但：Page Size、与体系结构 / 配置有关
 
-无法满足：
+还存在：Huge Page
 
-```text
-大块连续内存申请
-```
+## 虚拟地址转换
+虚拟地址：Virtual Page Number、+、Offset
 
----
+经过 Page Table：VPN、→ Physical Frame Number
 
-# 动态分区算法
+最终：Physical Address、=、Frame Base Address、+、Offset
 
-经典：
-
-```text
-First Fit
-Best Fit
-Worst Fit
-Next Fit
-```
-
----
-
-## First Fit
-
-按地址：
-
-```text
-从头找第一个够大的分区
-```
-
----
-
-## Best Fit
-
-选择：
-
-```text
-最小但足够大的分区
-```
-
-问题：
-
-```text
-容易留下很多小碎片
-```
-
----
-
-## Worst Fit
-
-选择：
-
-```text
-最大的空闲分区
-```
-
----
-
-## Next Fit
-
-从：
-
-```text
-上次查找结束的位置
-继续查找
-```
-
----
-
-# 分页
-
-Paging：
-
-```text
-Virtual Memory
-切成固定大小 Page
-
-Physical Memory
-切成同样大小 Frame
-```
-
-Page：
-
-```text
-可以放到任意空闲 Frame
-```
-
-因此：
-
-```text
-不要求物理连续
-```
-
----
-
-## Page Size
-
-x86 / x86-64 Linux：
-
-```text
-常见基础 Page Size
-→ 4KB
-```
-
-但：
-
-```text
-Page Size
-与体系结构 / 配置有关
-```
-
-还存在：
-
-```text
-Huge Page
-```
-
----
-
-# 虚拟地址转换
-
-虚拟地址：
-
-```text
-Virtual Page Number
-+
-Offset
-```
-
-经过 Page Table：
-
-```text
-VPN
-→ Physical Frame Number
-```
-
-最终：
-
-```text
-Physical Address
-=
-Frame Base Address
-+
-Offset
-```
-
----
-
-# Page Table
-
-Page Table：
-
-```text
-Virtual Page
-→ Physical Frame
-```
+## Page Table
+Page Table：Virtual Page、→ Physical Frame
 
 映射表。
 
-通常还记录：
-
-```text
-Present
-Read / Write
-User / Kernel
-Accessed
-Dirty
-```
+通常还记录：Present、Read / Write、User / Kernel、Accessed、Dirty
 
 等属性。
 
----
+## MMU
+MMU：Memory Management Unit
 
-# MMU
-
-MMU：
-
-```text
-Memory Management Unit
-```
-
-负责：
-
-```text
-Virtual Address
-→ Physical Address
-```
+负责：Virtual Address、→ Physical Address
 
 地址转换。
 
----
+## TLB
+TLB：Translation Lookaside Buffer
 
-# TLB
+保存：最近使用的 Page Table Entry
 
-TLB：
+作用：加速地址转换
 
-```text
-Translation Lookaside Buffer
-```
-
-保存：
-
-```text
-最近使用的 Page Table Entry
-```
-
-作用：
-
-```text
-加速地址转换
-```
-
----
-
-## 地址转换流程
-
+### 地址转换流程
 ```text
 Virtual Address
       ↓
@@ -2376,89 +955,29 @@ PFN    Page Table
    Fill TLB   Page Fault
 ```
 
-重点：
+重点：TLB Miss、≠、Page Fault
 
-```text
-TLB Miss
-≠
-Page Fault
-```
+## Page Fault
+Page Fault：访问某 Virtual Page、但当前映射不能满足访问
 
----
+常见：页面尚未装入 RAM、COW 写入、权限错误
 
-# Page Fault
+如果是合法但尚未装入：Kernel、→ 分配 / 找到 Physical Page、→ 更新 Page Table、→ 重新执行指令
 
-Page Fault：
+## 分段
+Segmentation：按程序逻辑结构、划分多个长度可变 Segment
 
-```text
-访问某 Virtual Page
-但当前映射不能满足访问
-```
+例如：Code、Data、Stack
 
-常见：
+地址：Segment Number、+、Offset
 
-```text
-页面尚未装入 RAM
-COW 写入
-权限错误
-```
+Segment Table 常包含：Base、Limit、Protection
 
-如果是合法但尚未装入：
-
-```text
-Kernel
-→ 分配 / 找到 Physical Page
-→ 更新 Page Table
-→ 重新执行指令
-```
-
----
-
-# 分段
-
-Segmentation：
-
-```text
-按程序逻辑结构
-划分多个长度可变 Segment
-```
-
-例如：
-
-```text
-Code
-Data
-Stack
-```
-
-地址：
-
-```text
-Segment Number
-+
-Offset
-```
-
-Segment Table 常包含：
-
-```text
-Base
-Limit
-Protection
-```
-
-不要把：
-
-```text
-程序固定分成 4 个 Segment
-```
+不要把：程序固定分成 4 个 Segment
 
 当作分段机制定义。
 
----
-
-# 分页 vs 分段
-
+## 分页与分段
 ```text
 Paging
 → 固定大小
@@ -2469,85 +988,33 @@ Segmentation
 → 面向程序逻辑结构
 ```
 
-碎片：
+碎片：Paging、→ 无外部碎片、→ 有内部碎片、Segmentation、→ 可能有外部碎片
 
-```text
-Paging
-→ 无外部碎片
-→ 有内部碎片
+## 段页式
+段页式结合两种思想：用户地址空间、→ 按逻辑分段、→ 每个段再分页、→ 物理内存按页框管理
 
-Segmentation
-→ 可能有外部碎片
-```
+优点是兼顾分段的逻辑组织 / 保护共享能力与分页的离散内存管理；代价是地址转换层级更多、管理结构更复杂。
 
----
+## 虚拟内存
+虚拟内存的经典特征可以记为：**多次性、对换性、虚拟性**。它依赖局部性原理，只把当前需要的部分装入内存。
 
-# 虚拟内存
+Virtual Memory：让程序看到的可用地址空间、可以大于当前实际 RAM
 
-Virtual Memory：
+基于：Locality、Demand Paging、Page Replacement、Address Translation
 
-```text
-让程序看到的可用地址空间
-可以大于当前实际 RAM
-```
+### 局部性原理
+程序访问内存通常：不是完全随机
 
-基于：
+存在：Temporal Locality、Spatial Locality
 
-```text
-Locality
-Demand Paging
-Page Replacement
-Address Translation
-```
+#### 时间局部性
+刚访问的数据：很可能再次访问
 
----
+#### 空间局部性
+访问某地址后：附近地址、很可能被访问
 
-## 局部性原理
-
-程序访问内存通常：
-
-```text
-不是完全随机
-```
-
-存在：
-
-```text
-Temporal Locality
-Spatial Locality
-```
-
----
-
-### 时间局部性
-
-刚访问的数据：
-
-```text
-很可能再次访问
-```
-
----
-
-### 空间局部性
-
-访问某地址后：
-
-```text
-附近地址
-很可能被访问
-```
-
----
-
-# Demand Paging
-
-程序启动：
-
-```text
-不必把所有页面
-立即装进内存
-```
+## Demand Paging
+程序启动：不必把所有页面、立即装进内存
 
 只在真正访问时：
 
@@ -2557,208 +1024,69 @@ Page Fault
 调入页面
 ```
 
----
+## 页面置换
+当：需要新 Page、但没有空闲 Frame
 
-# 页面置换
+OS：选择 Victim Page、换出
 
-当：
+目标：尽量减少 Page Fault
 
-```text
-需要新 Page
-但没有空闲 Frame
-```
-
-OS：
-
-```text
-选择 Victim Page
-换出
-```
-
-目标：
-
-```text
-尽量减少 Page Fault
-```
-
----
-
-## OPT
-
-```text
+### OPT
 Optimal
-```
 
-淘汰：
+淘汰：未来最久不会访问的页
 
-```text
-未来最久不会访问的页
-```
+理论最优：无法真正实现
 
-理论最优：
+主要用于：理论比较
 
-```text
-无法真正实现
-```
-
-主要用于：
-
-```text
-理论比较
-```
-
----
-
-## FIFO
-
-```text
+### FIFO
 First In First Out
-```
 
-最早进入内存的 Page：
+最早进入内存的 Page：先淘汰
 
-```text
-先淘汰
-```
+可能出现：Belady Anomaly
 
-可能出现：
+即：增加 Frame、反而增加 Page Fault
 
-```text
-Belady Anomaly
-```
-
-即：
-
-```text
-增加 Frame
-反而增加 Page Fault
-```
-
----
-
-## LRU
-
-```text
+### LRU
 Least Recently Used
-```
 
-淘汰：
+`OPT` 和 `LRU` 属于栈算法，不会出现 Belady 异常；`FIFO` 可能出现。
 
-```text
-最近最久没访问的 Page
-```
+淘汰：最近最久没访问的 Page
 
 理论效果好。
 
-但严格实现：
+但严格实现：成本较高
 
-```text
-成本较高
-```
+### Clock
+Clock：Reference Bit、+、Circular List
 
----
+近似：LRU
 
-## Clock
+流程：Reference = 0、→ 淘汰、Reference = 1、→ 置 0、→ 指针继续
 
-Clock：
+## Thrashing
+Thrashing：Page Fault 过于频繁
 
-```text
-Reference Bit
-+
-Circular List
-```
+表现：Page In、Page Out、Page In、Page Out
 
-近似：
+大量时间：消耗在换页
 
-```text
-LRU
-```
+CPU 实际执行程序的时间：反而下降
 
-流程：
+### 原因
+典型：Working Set、>、分配给进程的 Frames
 
-```text
-Reference = 0
-→ 淘汰
+### Working Set
+某时间窗口内：进程实际频繁访问的 Page 集合
 
-Reference = 1
-→ 置 0
-→ 指针继续
-```
+### 解决
+增加 Physical Memory、给进程更多 Frame、降低 Multiprogramming Degree、改进 Replacement Strategy、控制 Working Set
 
----
-
-# Thrashing
-
-Thrashing：
-
-```text
-Page Fault 过于频繁
-```
-
-表现：
-
-```text
-Page In
-Page Out
-Page In
-Page Out
-```
-
-大量时间：
-
-```text
-消耗在换页
-```
-
-CPU 实际执行程序的时间：
-
-```text
-反而下降
-```
-
----
-
-## 原因
-
-典型：
-
-```text
-Working Set
->
-分配给进程的 Frames
-```
-
----
-
-## Working Set
-
-某时间窗口内：
-
-```text
-进程实际频繁访问的 Page 集合
-```
-
----
-
-## 解决
-
-```text
-增加 Physical Memory
-给进程更多 Frame
-降低 Multiprogramming Degree
-改进 Replacement Strategy
-控制 Working Set
-```
-
----
-
-# fork
-
-fork：
-
-```text
-创建子进程
-```
+## fork
+fork：创建子进程
 
 经典理解：
 
@@ -2768,40 +1096,16 @@ Parent
 Child
 ```
 
-子进程获得：
+子进程获得：自己的 Virtual Address Space
 
-```text
-自己的 Virtual Address Space
-```
+但并不是立即：复制父进程全部 Physical Memory
 
-但并不是立即：
+## Copy-On-Write
+fork 后：父子页表、暂时指向相同 Physical Pages
 
-```text
-复制父进程全部 Physical Memory
-```
+并把相关页面：标记为只读 / COW
 
----
-
-# Copy-On-Write
-
-fork 后：
-
-```text
-父子页表
-暂时指向相同 Physical Pages
-```
-
-并把相关页面：
-
-```text
-标记为只读 / COW
-```
-
-如果双方只读：
-
-```text
-继续共享
-```
+如果双方只读：继续共享
 
 某一方写：
 
@@ -2817,21 +1121,10 @@ Kernel Copy Page
 重新执行写操作
 ```
 
----
+### COW 优点
+减少 fork 初始复制成本、节省 Physical Memory、提高 fork 性能
 
-## COW 优点
-
-```text
-减少 fork 初始复制成本
-节省 Physical Memory
-提高 fork 性能
-```
-
-尤其：
-
-```text
-fork 后马上 exec
-```
+尤其：fork 后马上 exec
 
 时非常划算。
 
@@ -2839,107 +1132,40 @@ fork 后马上 exec
 
 > **fork 先共享，写的时候才复制。**
 
----
+## malloc、brk 与 mmap
+### malloc
+malloc：C Library Function
 
-# malloc、brk 与 mmap
+不是：System Call
 
-## malloc
+它是：User-Space Allocator
 
-malloc：
-
-```text
-C Library Function
-```
-
-不是：
-
-```text
-System Call
-```
-
-它是：
-
-```text
-User-Space Allocator
-```
-
-底层可能通过：
-
-```text
-brk / sbrk
-mmap
-```
+底层可能通过：brk / sbrk、mmap
 
 向 OS 获取虚拟内存。
 
----
-
-## brk
-
-通过改变：
-
-```text
-Program Break
-```
+### brk
+通过改变：Program Break
 
 扩展 / 收缩 Heap。
 
----
+### mmap
+可以建立：File Mapping、Anonymous Mapping、Shared Mapping、Private Mapping
 
-## mmap
-
-可以建立：
-
-```text
-File Mapping
-Anonymous Mapping
-Shared Mapping
-Private Mapping
-```
-
-用于：
-
-```text
-Memory-Mapped File
-Large Allocation
-Shared Memory
-```
+用于：Memory-Mapped File、Large Allocation、Shared Memory
 
 等场景。
 
----
+### malloc 的阈值
+一些 glibc 实现：小块、→ 倾向 Heap / brk、大块、→ 倾向 mmap
 
-## malloc 的阈值
+但：具体阈值、与 glibc 版本 / 运行时策略有关
 
-一些 glibc 实现：
-
-```text
-小块
-→ 倾向 Heap / brk
-
-大块
-→ 倾向 mmap
-```
-
-但：
-
-```text
-具体阈值
-与 glibc 版本 / 运行时策略有关
-```
-
-不要死记：
-
-```text
-128KB
-```
+不要死记：128KB
 
 为固定规则。
 
----
-
-# Linux 内存不足
-
+## Linux 内存不足
 大致：
 
 ```text
@@ -2954,168 +1180,57 @@ Kernel
 → 尝试分配 Physical Page
 ```
 
-如果内存紧张：
+如果内存紧张：Memory Reclaim
 
-```text
-Memory Reclaim
-```
-
----
-
-## 后台回收
-
-```text
+### 后台回收
 kswapd
-```
 
-内核后台线程：
+内核后台线程：异步回收内存
 
-```text
-异步回收内存
-```
+### Direct Reclaim
+如果：后台回收跟不上
 
----
+当前申请进程可能：直接参与回收
 
-## Direct Reclaim
+特点：同步、会阻塞当前分配路径
 
-如果：
+## 可回收内存
+常见：File-backed Pages、Anonymous Pages
 
-```text
-后台回收跟不上
-```
+### File-backed Page
+例如：Page Cache
 
-当前申请进程可能：
+干净页：可直接丢弃、需要时重新从文件读取
 
-```text
-直接参与回收
-```
+脏页：先写回 Storage、再回收
 
-特点：
-
-```text
-同步
-会阻塞当前分配路径
-```
-
----
-
-# 可回收内存
-
-常见：
-
-```text
-File-backed Pages
-Anonymous Pages
-```
-
----
-
-## File-backed Page
-
-例如：
-
-```text
-Page Cache
-```
-
-干净页：
-
-```text
-可直接丢弃
-需要时重新从文件读取
-```
-
-脏页：
-
-```text
-先写回 Storage
-再回收
-```
-
----
-
-## Anonymous Page
-
-例如：
-
-```text
-Heap
-Stack
-Anonymous mmap
-```
+### Anonymous Page
+例如：Heap、Stack、Anonymous mmap
 
 没有对应文件作为后备。
 
-如果启用 Swap：
+如果启用 Swap：可以换出到 Swap
 
-```text
-可以换出到 Swap
-```
+之后需要：再从 Swap 换入
 
-之后需要：
+## OOM
+如果：Reclaim、仍无法满足关键内存申请
 
-```text
-再从 Swap 换入
-```
+系统可能进入：OOM、Out Of Memory
 
----
+Linux 可能触发：OOM Killer
 
-# OOM
+### OOM Killer
+不是简单：谁占内存最多、就一定杀谁
 
-如果：
-
-```text
-Reclaim
-仍无法满足关键内存申请
-```
-
-系统可能进入：
-
-```text
-OOM
-Out Of Memory
-```
-
-Linux 可能触发：
-
-```text
-OOM Killer
-```
-
----
-
-## OOM Killer
-
-不是简单：
-
-```text
-谁占内存最多
-就一定杀谁
-```
-
-而是根据：
-
-```text
-oom_badness / oom_score
-oom_score_adj
-内存使用
-进程属性
-```
+而是根据：oom_badness / oom_score、oom_score_adj、内存使用、进程属性
 
 综合选择 Victim。
 
-目标：
+目标：尽快释放足够资源
 
-```text
-尽快释放足够资源
-```
-
----
-
-# 文件系统
-
+# 文件与磁盘
 ## 文件系统作用
-
 文件系统负责：
 
 ```text
@@ -3128,15 +1243,25 @@ oom_score_adj
 持久化
 ```
 
----
+## 文件基础与打开流程
+文件系统从用户角度解决“**按名存取**”，从系统角度负责文件组织、空间分配、访问控制和持久化。
 
-# File Descriptor
+常见操作：`create`、`open`、`read`、`write`、`seek`、`close`、`delete`、`truncate`。
 
-进程访问打开的文件 / Socket：
+传统教材常用 **FCB（File Control Block）** 表示文件控制信息；Unix/Linux 更常从 inode、目录项和打开文件表理解：文件名、→ 目录项、→ FCB / inode 等元数据、→ 打开文件表、→ 进程 FD
 
-```text
-通常通过 FD
-```
+打开文件后，后续读写可通过 FD / 打开文件表定位文件，无需每次都从路径重新查找。
+
+## 文件逻辑结构
+从用户角度，文件可以看成：
+
+- **无结构文件（流式文件）**：字节流，没有固定记录结构。
+- **有结构文件（记录式文件）**：可进一步采用顺序、索引、索引顺序等组织方式。
+
+逻辑结构描述“用户看到的数据组织方式”；连续 / 链接 / 索引分配描述的是“文件在外存上的物理组织方式”，两者不要混淆。
+
+## File Descriptor
+进程访问打开的文件 / Socket：通常通过 FD
 
 例如：
 
@@ -3151,10 +1276,7 @@ oom_score_adj
 → stderr
 ```
 
----
-
-## FD 关系
-
+### FD 关系
 可以简化：
 
 ```text
@@ -3169,15 +1291,8 @@ inode
 File Data
 ```
 
----
-
-# inode
-
-inode：
-
-```text
-文件元数据结构
-```
+## inode
+inode：文件元数据结构
 
 典型包含：
 
@@ -3191,137 +1306,50 @@ Data Block Pointer
 Link Count
 ```
 
-通常：
+通常：File Name、不直接保存在 inode 中
 
-```text
-File Name
-不直接保存在 inode 中
-```
-
-目录负责：
-
-```text
-Name
-→ inode
-```
+目录负责：Name、→ inode
 
 映射。
 
----
+## 文件目录
+Directory：Name、→ inode / File Metadata
 
-# 文件目录
+经典目录结构：Single-Level      单级目录、Two-Level         两级目录、Tree              树形多级目录、Acyclic Graph     无环图目录（便于共享）
 
-Directory：
+- **绝对路径**：从根目录开始。
+- **相对路径**：从当前工作目录开始。
 
-```text
-Name
-→ inode / File Metadata
-```
+现代系统常见：Tree-like Hierarchy
 
-经典目录结构：
+## 文件分配方式
+### 连续分配
+文件占据：连续 Disk Blocks
 
-```text
-Single-Level
-Tree
-Acyclic Graph
-```
+优点：顺序 / 随机访问快
 
-现代系统常见：
+问题：外部碎片、文件增长困难
 
-```text
-Tree-like Hierarchy
-```
+### 链接分配
+每个 Block：指向下一个 Block
 
----
+优点：无外部碎片、扩展方便
 
-# 文件分配方式
+缺点：随机访问慢、指针有额外开销
 
-## 连续分配
+### 索引分配
+建立：Index Block
 
-文件占据：
+记录：Logical Block、→ Physical Block
 
-```text
-连续 Disk Blocks
-```
+思想类似：Page Table
 
-优点：
-
-```text
-顺序 / 随机访问快
-```
-
-问题：
-
-```text
-外部碎片
-文件增长困难
-```
-
----
-
-## 链接分配
-
-每个 Block：
-
-```text
-指向下一个 Block
-```
-
-优点：
-
-```text
-无外部碎片
-扩展方便
-```
-
-缺点：
-
-```text
-随机访问慢
-指针有额外开销
-```
-
----
-
-## 索引分配
-
-建立：
-
-```text
-Index Block
-```
-
-记录：
-
-```text
-Logical Block
-→ Physical Block
-```
-
-思想类似：
-
-```text
-Page Table
-```
-
----
-
-## 多级索引
-
-如果文件很大：
-
-```text
-Single Indirect
-Double Indirect
-Triple Indirect
-```
+### 多级索引
+如果文件很大：Single Indirect、Double Indirect、Triple Indirect
 
 等结构。
 
----
-
-## 混合索引
-
+### 混合索引
 典型：
 
 ```text
@@ -3333,103 +1361,34 @@ Double Indirect
 ...
 ```
 
-优点：
+优点：Small File、→ 直接地址快、Large File、→ 间接索引扩展性好
 
-```text
-Small File
-→ 直接地址快
+## 空闲空间管理
+经典：Free Table、Free List、Bitmap、Grouped Linking
 
-Large File
-→ 间接索引扩展性好
-```
+现代文件系统常见思想：Bitmap、Extent、Tree-based Free Space
 
----
+## Hard Link
+Hard Link：多个 Directory Entry、指向同一个 inode
 
-# 空闲空间管理
+因此：inode 相同、Data 相同
 
-经典：
+删除其中一个路径：只减少 Link Count
 
-```text
-Free Table
-Free List
-Bitmap
-Grouped Linking
-```
-
-现代文件系统常见思想：
-
-```text
-Bitmap
-Extent
-Tree-based Free Space
-```
-
----
-
-# Hard Link
-
-Hard Link：
-
-```text
-多个 Directory Entry
-指向同一个 inode
-```
-
-因此：
-
-```text
-inode 相同
-Data 相同
-```
-
-删除其中一个路径：
-
-```text
-只减少 Link Count
-```
-
-只要仍有：
-
-```text
-其他 Hard Link
-或打开的引用
-```
+只要仍有：其他 Hard Link、或打开的引用
 
 数据不一定立刻消失。
 
----
+## Symbolic Link
+Symlink：有自己的 inode
 
-# Symbolic Link
+它的数据内容通常保存：目标 Path
 
-Symlink：
+因此：可以跨文件系统、可以指向目录
 
-```text
-有自己的 inode
-```
+如果目标被删：可能成为 Dangling Link
 
-它的数据内容通常保存：
-
-```text
-目标 Path
-```
-
-因此：
-
-```text
-可以跨文件系统
-可以指向目录
-```
-
-如果目标被删：
-
-```text
-可能成为 Dangling Link
-```
-
----
-
-## Hard Link vs Symlink
-
+#### Hard Link 与 Symlink
 ```text
 Hard Link
 → 多个名字
@@ -3440,111 +1399,97 @@ Symlink
   内容是目标路径
 ```
 
----
+## 文件保护
+常见保护手段：**访问控制、口令 / 身份认证、加密**。现代系统常通过权限位、ACL 等机制限制不同用户对文件的读、写、执行等操作。
 
-# VFS
+文件保护不仅针对文件本身，目录的搜索、创建、删除权限同样会影响最终访问能力。
 
-VFS：
+## VFS
+VFS：Virtual File System
 
-```text
-Virtual File System
-```
+作用：给应用统一文件 API
 
-作用：
+上层：open、read、write、close
 
-```text
-给应用统一文件 API
-```
+下层可以是：ext4、XFS、tmpfs、NFS、...
 
-上层：
+## 磁盘访问与调度
+一次传统磁盘访问时间主要由：寻道时间 + 旋转延迟 + 数据传输时间
 
-```text
-open
-read
-write
-close
-```
+组成，其中调度算法主要试图降低磁头移动带来的寻道开销。
 
-下层可以是：
-
-```text
-ext4
-XFS
-tmpfs
-NFS
-...
-```
-
----
+| 算法 | 核心思想 | 特点 |
+| --- | --- | --- |
+| FCFS | 按请求到达顺序处理 | 公平、简单，平均寻道距离可能较大 |
+| SSTF | 优先服务离当前磁头最近的请求 | 平均寻道较小，但远端请求可能饥饿 |
+| SCAN | 像电梯一样沿一个方向服务，到边界后反向 | 分布较均衡 |
+| C-SCAN | 只按一个方向服务，到端点后快速返回 | 等待时间更均匀 |
+| LOOK | 类似 SCAN，但只走到当前方向最远请求 | 减少无效移动 |
+| C-LOOK | 类似 C-SCAN，只到最远请求后回到另一端请求 | 减少无效移动 |
 
 # I/O 系统
+## I/O 设备与控制方式
+按信息交换单位常分为：
+- **块设备**：以块为单位，可寻址，典型如磁盘。
+- **字符设备**：以字符 / 字节流为单位，典型如终端等。
+
+经典 I/O 控制方式：
+
+```text
+程序直接控制 / 轮询
+        ↓
+中断驱动
+        ↓
+DMA
+        ↓
+通道控制（经典大型机思想）
+```
+
+- **轮询**：CPU 反复检查设备状态，简单但浪费 CPU。
+- **中断驱动**：设备就绪后通过中断通知 CPU，减少忙等。
+- **DMA**：设备与内存之间批量传输数据，CPU 主要负责初始化和完成处理，显著减少 CPU 搬运数据的负担。
+- **通道**：经典体系结构中由专用 I/O 处理部件执行更完整的 I/O 控制任务。
+
+## I/O 软件层次
+```text
+用户程序
+  ↓
+设备无关 I/O 软件 / 系统调用层
+  ↓
+设备驱动程序
+  ↓
+中断处理
+  ↓
+设备控制器 / 硬件
+```
+
+**设备独立性**：应用尽量使用统一的逻辑接口，具体硬件差异由设备驱动等层次屏蔽。
+
+## 缓冲与 SPOOLing
+**缓冲（Buffering）**主要用于缓和 CPU 与 I/O 设备速度不匹配、减少频繁中断和提高 CPU / I/O 并行性。常见有单缓冲、双缓冲和缓冲池。
+
+**SPOOLing（假脱机）**利用磁盘等辅助存储和软件队列，把独占设备在逻辑上改造成可被多个任务共享的“虚拟设备”，经典例子是打印任务排队。
 
 ## Blocking I/O
+应用：发起 I/O
 
-应用：
+如果数据没准备好：线程阻塞
 
-```text
-发起 I/O
-```
+直到：I/O 可以继续 / 完成
 
-如果数据没准备好：
+## Non-blocking I/O
+应用：发起 I/O
 
-```text
-线程阻塞
-```
+如果暂时不能完成：立即返回
 
-直到：
+通常返回：EAGAIN、EWOULDBLOCK
 
-```text
-I/O 可以继续 / 完成
-```
+应用可以：稍后重试
 
----
+## I/O Multiplexing
+一个线程：同时等待多个 FD
 
-# Non-blocking I/O
-
-应用：
-
-```text
-发起 I/O
-```
-
-如果暂时不能完成：
-
-```text
-立即返回
-```
-
-通常返回：
-
-```text
-EAGAIN
-EWOULDBLOCK
-```
-
-应用可以：
-
-```text
-稍后重试
-```
-
----
-
-# I/O Multiplexing
-
-一个线程：
-
-```text
-同时等待多个 FD
-```
-
-典型：
-
-```text
-select
-poll
-epoll
-```
+典型：select、poll、epoll
 
 流程：
 
@@ -3558,25 +1503,10 @@ Ready FDs
 Application read/write
 ```
 
-注意：
+注意：Multiplexing、→ 等待 Ready、不是：、内核替应用完成所有 I/O
 
-```text
-Multiplexing
-→ 等待 Ready
-
-不是：
-内核替应用完成所有 I/O
-```
-
----
-
-# select
-
-select：
-
-```text
-fd_set Bitmap
-```
+## select
+select：fd_set Bitmap
 
 每次：
 
@@ -3590,291 +1520,91 @@ fd_set Bitmap
 用户态再扫描
 ```
 
-特点：
+特点：每轮复制 / 扫描 FD 集合、O(n)
 
-```text
-每轮复制 / 扫描 FD 集合
-O(n)
-```
+`FD_SETSIZE`：常见默认 1024
 
-`FD_SETSIZE`：
+属于：接口 / 用户态数据结构限制
 
-```text
-常见默认 1024
-```
-
-属于：
-
-```text
-接口 / 用户态数据结构限制
-```
-
-不是：
-
-```text
-“重编译内核才能改变”
-```
+不是：“重编译内核才能改变”
 
 这种简单结论。
 
----
+## poll
+poll：struct pollfd[]
 
-# poll
+相比 select：没有固定 fd_set 位图上限
 
-poll：
+但：仍需扫描全部关注 FD
 
-```text
-struct pollfd[]
-```
+复杂度：O(n)
 
-相比 select：
+## epoll
+epoll：Linux 高并发 I/O Multiplexing
 
-```text
-没有固定 fd_set 位图上限
-```
+典型 API：epoll_create、epoll_ctl、epoll_wait
 
-但：
-
-```text
-仍需扫描全部关注 FD
-```
-
-复杂度：
-
-```text
-O(n)
-```
-
----
-
-# epoll
-
-epoll：
-
-```text
-Linux 高并发 I/O Multiplexing
-```
-
-典型 API：
-
-```text
-epoll_create
-epoll_ctl
-epoll_wait
-```
-
----
-
-## epoll_ctl
-
-用于：
-
-```text
-ADD
-MOD
-DEL
-```
+### epoll_ctl
+用于：ADD、MOD、DEL
 
 关注的 FD。
 
----
+### epoll_wait
+用于：等待 Ready Event
 
-## epoll_wait
+只返回：已经就绪的事件
 
-用于：
+### 内部理解
+可以简化：Interest Set、→ 内核维护、Ready List、→ 保存就绪事件
 
-```text
-等待 Ready Event
-```
+常见源码理解：红黑树、→ 管理关注 FD、就绪链表、→ 保存 Ready FD
 
-只返回：
+重点：select / poll、→ 每次问“所有 FD 谁 Ready？”、epoll、→ 内核维护状态、直接给 Ready Event
 
-```text
-已经就绪的事件
-```
+### epoll 优势
+无需每轮传完整 FD 集合、无需每轮线性扫描所有关注 FD、更适合大量连接、少量活跃
 
----
+不要简单死记：epoll = O(1)
 
-## 内部理解
+## LT
+LT：Level Triggered
 
-可以简化：
+只要：FD 仍处于 Ready 状态
 
-```text
-Interest Set
-→ 内核维护
+就可能：继续通知
 
-Ready List
-→ 保存就绪事件
-```
+优点：实现简单、容错高
 
-常见源码理解：
+## ET
+ET：Edge Triggered
 
-```text
-红黑树
-→ 管理关注 FD
-
-就绪链表
-→ 保存 Ready FD
-```
-
-重点：
-
-```text
-select / poll
-→ 每次问“所有 FD 谁 Ready？”
-
-epoll
-→ 内核维护状态
-  直接给 Ready Event
-```
-
----
-
-## epoll 优势
-
-```text
-无需每轮传完整 FD 集合
-无需每轮线性扫描所有关注 FD
-更适合大量连接、少量活跃
-```
-
-不要简单死记：
-
-```text
-epoll = O(1)
-```
-
----
-
-# LT
-
-LT：
-
-```text
-Level Triggered
-```
-
-只要：
-
-```text
-FD 仍处于 Ready 状态
-```
-
-就可能：
-
-```text
-继续通知
-```
-
-优点：
-
-```text
-实现简单
-容错高
-```
-
----
-
-# ET
-
-ET：
-
-```text
-Edge Triggered
-```
-
-主要在：
-
-```text
-状态发生变化
-```
+主要在：状态发生变化
 
 时通知。
 
-通常：
+通常：配合 Non-blocking FD
 
-```text
-配合 Non-blocking FD
-```
+收到 Ready 后：循环 read / write、直到 EAGAIN / EWOULDBLOCK
 
-收到 Ready 后：
+不要理解成：一次 read()、必须读完所有数据
 
-```text
-循环 read / write
-直到 EAGAIN / EWOULDBLOCK
-```
+而是：一次事件处理循环、尽量处理到暂时无数据可读
 
-不要理解成：
+#### LT 与 ET
+LT；→ 状态还 Ready；继续提醒；ET；→ 状态变化时重点提醒
 
-```text
-一次 read()
-必须读完所有数据
-```
+不要死记：ET 一定比 LT 快
 
-而是：
+更准确：ET、→ 通知次数可能更少、→ 实现更复杂、LT、→ 更容易写正确
 
-```text
-一次事件处理循环
-尽量处理到暂时无数据可读
-```
+## Signal-Driven I/O
+Signal-Driven I/O：内核在 FD Ready 时、发送 Signal
 
----
+重点：通知的是 Ready
 
-## LT vs ET
+应用仍然：自己调用 read/write
 
-```text
-LT
-→ 状态还 Ready
-  继续提醒
-
-ET
-→ 状态变化时重点提醒
-```
-
-不要死记：
-
-```text
-ET 一定比 LT 快
-```
-
-更准确：
-
-```text
-ET
-→ 通知次数可能更少
-→ 实现更复杂
-
-LT
-→ 更容易写正确
-```
-
----
-
-# Signal-Driven I/O
-
-Signal-Driven I/O：
-
-```text
-内核在 FD Ready 时
-发送 Signal
-```
-
-重点：
-
-```text
-通知的是 Ready
-```
-
-应用仍然：
-
-```text
-自己调用 read/write
-```
-
----
-
-# Asynchronous I/O
-
+## Asynchronous I/O
 AIO：
 
 ```text
@@ -3885,46 +1615,18 @@ AIO：
 完成后通知应用
 ```
 
-重点：
+重点：完成通知
 
-```text
-完成通知
-```
+所以：Signal-Driven、→ Ready、AIO、→ Complete
 
-所以：
+## 零拷贝
+Zero-Copy：目标是减少不必要的数据复制
 
-```text
-Signal-Driven
-→ Ready
-
-AIO
-→ Complete
-```
-
----
-
-# 零拷贝
-
-Zero-Copy：
-
-```text
-目标是减少不必要的数据复制
-```
-
-尤其：
-
-```text
-User Space
-↔
-Kernel Space
-```
+尤其：User Space、↔、Kernel Space
 
 之间的 CPU Copy。
 
----
-
-## 传统文件发送
-
+### 传统文件发送
 典型：
 
 ```text
@@ -3939,133 +1641,47 @@ Socket Buffer
 NIC
 ```
 
-还伴随：
-
-```text
-read()
-write()
-```
+还伴随：read()、write()
 
 多个系统调用。
 
----
+### Zero-Copy 核心
+目标：减少：、CPU Copy、User/Kernel Copy、System Call、Context Switch
 
-## Zero-Copy 核心
+不是说：整条硬件路径、真正 0 次搬运
 
-目标：
+## sendfile
+sendfile：File FD、→ Socket FD
 
-```text
-减少：
-CPU Copy
-User/Kernel Copy
-System Call
-Context Switch
-```
+数据：尽量在 Kernel 内部流转
 
-不是说：
+避免：先 copy 到 User Buffer、再 copy 回 Kernel
 
-```text
-整条硬件路径
-真正 0 次搬运
-```
+## mmap
+mmap：把文件映射到进程 Virtual Address Space
 
----
+避免传统：read()、把文件内容复制到独立 User Buffer
 
-# sendfile
+## splice
+splice：在两个 FD 之间、在 Kernel 内部移动数据
 
-sendfile：
-
-```text
-File FD
-→ Socket FD
-```
-
-数据：
-
-```text
-尽量在 Kernel 内部流转
-```
-
-避免：
-
-```text
-先 copy 到 User Buffer
-再 copy 回 Kernel
-```
-
----
-
-# mmap
-
-mmap：
-
-```text
-把文件映射到进程 Virtual Address Space
-```
-
-避免传统：
-
-```text
-read()
-把文件内容复制到独立 User Buffer
-```
-
----
-
-# splice
-
-splice：
-
-```text
-在两个 FD 之间
-在 Kernel 内部移动数据
-```
-
-常与：
-
-```text
-Pipe
-```
+常与：Pipe
 
 配合。
 
----
+## Direct I/O
+Direct I/O：绕过 Page Cache
 
-# Direct I/O
-
-Direct I/O：
-
-```text
-绕过 Page Cache
-```
-
-适合某些：
-
-```text
-Database
-Storage Engine
-```
+适合某些：Database、Storage Engine
 
 场景。
 
-它和 Zero-Copy：
+它和 Zero-Copy：不是完全等价概念
 
-```text
-不是完全等价概念
-```
-
-只是：
-
-```text
-减少内核缓存层参与
-```
-
----
+只是：减少内核缓存层参与
 
 # 速记
-
 ## OS
-
 ```text
 管理：
 CPU
@@ -4075,59 +1691,19 @@ Device
 Process
 ```
 
----
-
 ## User / Kernel
+User Mode；→ 普通程序；Kernel Mode；→ OS 核心
 
-```text
-User Mode
-→ 普通程序
-
-Kernel Mode
-→ OS 核心
-```
-
-进入内核常见：
-
-```text
-System Call
-Exception
-Interrupt
-```
-
----
+进入内核常见：System Call、Exception、Interrupt
 
 ## Process / Thread
+Process；→ Resource Isolation；Thread；→ Execution / Scheduling
 
-```text
-Process
-→ Resource Isolation
+共享：Code、Heap、Address Space、Files
 
-Thread
-→ Execution / Scheduling
-```
-
-共享：
-
-```text
-Code
-Heap
-Address Space
-Files
-```
-
-线程独有：
-
-```text
-Stack
-Register
-PC
-```
-
----
+线程独有：Stack、Register、PC
 
 ## PCB
-
 ```text
 PID
 State
@@ -4138,10 +1714,7 @@ File
 Signal
 ```
 
----
-
 ## IPC
-
 ```text
 Pipe
 Message Queue
@@ -4151,20 +1724,9 @@ Signal
 Socket
 ```
 
-记：
-
-```text
-Signal
-→ 通知
-
-Semaphore
-→ 协调
-```
-
----
+记：Signal、→ 通知、Semaphore、→ 协调
 
 ## Scheduling
-
 ```text
 FCFS
 SJF
@@ -4174,18 +1736,8 @@ Priority
 MLFQ
 ```
 
----
-
 ## Deadlock
-
-四条件：
-
-```text
-互斥
-持有等待
-不可剥夺
-循环等待
-```
+四条件：互斥、持有等待、不可剥夺、循环等待
 
 ```text
 Prevention
@@ -4198,10 +1750,7 @@ Detection
 → 允许发生后检测
 ```
 
----
-
 ## Memory
-
 ```text
 Virtual Address
    ↓
@@ -4212,48 +1761,17 @@ Page Table
 Physical Frame
 ```
 
-重点：
-
-```text
-TLB Miss
-≠
-Page Fault
-```
-
----
+重点：TLB Miss、≠、Page Fault
 
 ## Paging
+Virtual Memory；→ Page；Physical Memory；→ Frame
 
-```text
-Virtual Memory
-→ Page
-
-Physical Memory
-→ Frame
-```
-
-```text
-Paging
-→ 无外部碎片
-→ 有内部碎片
-```
-
----
+Paging；→ 无外部碎片；→ 有内部碎片
 
 ## Virtual Memory
-
-```text
-Locality
-+
-Demand Paging
-+
-Page Replacement
-```
-
----
+Locality；+；Demand Paging；+；Page Replacement
 
 ## Replacement
-
 ```text
 OPT
 → 理论最优
@@ -4270,10 +1788,7 @@ Clock
 → 近似 LRU
 ```
 
----
-
 ## COW
-
 ```text
 fork
  ↓
@@ -4286,30 +1801,12 @@ Page Fault
 Copy Page
 ```
 
-记：
-
-```text
-先共享
-写时复制
-```
-
----
+记：先共享、写时复制
 
 ## malloc
-
-```text
-malloc
-→ Library Function
-
-底层可能：
-brk
-mmap
-```
-
----
+malloc；→ Library Function；底层可能：；brk；mmap
 
 ## OOM
-
 ```text
 内存紧张
  ↓
@@ -4322,10 +1819,7 @@ kswapd / Direct Reclaim
 OOM Killer
 ```
 
----
-
 ## File System
-
 ```text
 Process
  ↓
@@ -4338,23 +1832,10 @@ inode
 Data
 ```
 
----
-
 ## Link
-
-```text
-Hard Link
-→ 同 inode
-
-Symlink
-→ 独立 inode
-→ 保存目标路径
-```
-
----
+Hard Link；→ 同 inode；Symlink；→ 独立 inode；→ 保存目标路径
 
 ## I/O
-
 ```text
 Blocking
 → 等
@@ -4369,10 +1850,7 @@ AIO
 → 内核完成后通知
 ```
 
----
-
 ## select / poll / epoll
-
 ```text
 select
 → fd_set
@@ -4387,43 +1865,15 @@ epoll
 → 返回 Ready Event
 ```
 
----
-
 ## LT / ET
-
-```text
-LT
-→ Ready 还在就继续通知
-
-ET
-→ 状态变化重点通知
-→ Non-blocking + 读到 EAGAIN
-```
-
----
+LT；→ Ready 还在就继续通知；ET；→ 状态变化重点通知；→ Non-blocking + 读到 EAGAIN
 
 ## Zero-Copy
+核心：、减少 User ↔ Kernel Copy、减少 CPU Copy、减少 System Call / Context Switch
 
-```text
-核心：
-减少 User ↔ Kernel Copy
-减少 CPU Copy
-减少 System Call / Context Switch
-```
+典型：sendfile、mmap、splice、Direct I/O
 
-典型：
-
-```text
-sendfile
-mmap
-splice
-Direct I/O
-```
-
----
-
-# 一句话总结
-
+## 一句话总结
 ```text
 Process / Thread
 → 程序怎么运行
