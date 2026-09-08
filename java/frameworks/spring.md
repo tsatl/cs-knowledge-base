@@ -1,189 +1,67 @@
 # Spring 基础知识结构速记
-> Spring 主线：
 
-```text
-IOC
-→ 对象交给容器管理
+> 主线：**IOC 与 Bean → AOP → 事务 → Spring MVC → Spring Boot**
 
-DI
-→ 容器给对象注入依赖
+# 1. IOC 与 Bean
 
-Bean 生命周期
-→ Bean 从定义、创建、增强到销毁
+## IOC / DI
 
-AOP
-→ 通过代理给方法增加公共逻辑
-
-Transaction
-→ AOP + TransactionManager
-
-Spring MVC
-→ Web 请求分发
-
-Spring Boot
-→ 自动配置 + 条件装配
-```
-
-# Spring IOC
-## IOC
-IOC：Inversion of Control、控制反转
-
-传统方式：对象自己创建依赖
-
-例如：UserService service = new UserService(new UserDao());
-
-IOC：对象的创建、依赖关系、生命周期
-
-交给：`Spring Container`
-
-管理。
-
-一句话：
-
-> **IOC = 对象由谁创建、谁管理，从程序自己控制，反转为 Spring 容器控制。**
-
-## DI
-DI：Dependency Injection、依赖注入
-
-IOC 是：思想
-
-DI 是：IOC 最主要的实现方式
-
-关系：
-
-```text
-IOC
- ↓
-容器创建 Bean
- ↓
-发现 Bean 的依赖
- ↓
-DI
- ↓
-把依赖注入 Bean
-```
-
-例如：
-
-```java
-@Service
-public class UserService {
-
-    private final UserDao userDao;
-
-    public UserService(UserDao userDao) {
-        this.userDao = userDao;
-    }
-}
-```
-
-`UserDao`：不是 UserService 自己 new
-
-而是：Spring Container → 找到 UserDao Bean，注入 UserService
-
-## Spring IOC 如何实现
-核心流程：
+- **IOC**：对象的创建、依赖关系和生命周期交给 Spring 容器管理。
+- **DI**：IOC 的主要实现方式，由容器把依赖注入 Bean。
 
 ```text
 配置 / 注解
    ↓
 BeanDefinition
    ↓
-BeanFactory / ApplicationContext
+Spring Container
    ↓
 实例化 Bean
    ↓
-依赖注入
+DI
    ↓
 初始化
    ↓
-BeanPostProcessor
-   ↓
-完整 Bean / Proxy
+Bean / Proxy
 ```
 
-底层可能使用：反射、工厂模式、代理、BeanPostProcessor
+IOC 底层会用到反射、工厂、代理、`BeanPostProcessor` 等机制，但 **IOC ≠ 反射**。
 
-但：IOC ≠ 反射
+## 容器与 Bean 定义
 
-反射只是实现 Bean 创建、属性设置、方法调用等功能的重要技术之一。
-
-## BeanFactory
-BeanFactory：Spring IOC 容器的基础接口
-
-主要负责：Bean 创建、Bean 获取、依赖管理、生命周期管理
-
-常见方法：`getBean(...)`
-
-## ApplicationContext
-ApplicationContext：BeanFactory 的高级容器体系
-
-除了 IOC：Bean 管理
-
-还提供：事件发布、国际化、资源加载、环境配置、AOP 集成、企业级扩展
-
-通常开发中：直接使用 ApplicationContext
-
-# Bean
-## BeanDefinition
-Spring 不会看到一个类就立刻创建对象。
-
-首先把 Bean 的定义信息解析为：`BeanDefinition`
-
-BeanDefinition 可以理解为：
-
-> **Spring 创建 Bean 的“说明书”。**
-
-里面记录：
-
-```text
-Bean Class
-Scope
-是否 Lazy
-构造参数
-属性值
-初始化方法
-销毁方法
-依赖关系
-```
-
-流程：
+| 概念 | 作用 |
+| --- | --- |
+| `BeanFactory` | IOC 容器基础接口，负责 Bean 创建、获取、依赖和生命周期 |
+| `ApplicationContext` | BeanFactory 的增强版，增加事件、资源加载、环境配置、AOP 等能力，开发中更常用 |
+| `BeanDefinition` | Bean 的“说明书”，记录类型、Scope、Lazy、构造参数、属性、初始化/销毁方法等 |
+| `BeanFactoryPostProcessor` | Bean 实例化前修改 `BeanDefinition` 等容器元数据 |
+| `BeanPostProcessor` | Bean 实例创建后，在初始化前后处理 Bean；AOP 代理等机制会用到 |
 
 ```text
 @Component / @Bean / XML
         ↓
    BeanDefinition
         ↓
- BeanDefinitionRegistry
+   Spring Container
         ↓
-      Container
-        ↓
-     创建 Bean
+       Bean
 ```
 
-## Bean 的获取
-Spring 中：
+单例 Bean 最终通常保存在 `singletonObjects`。
 
-```text
-Bean Name
-      ↓
-BeanDefinition
-      ↓
-创建 / 获取实例
-```
+## Bean 创建与管理
 
-单例 Bean 最终通常保存在：`singletonObjects`
+### 注入方式
 
-中。
+| 方式 | 特点 |
+| --- | --- |
+| 构造器注入 | 依赖明确，可配合 `final`，适合必需依赖，通常优先 |
+| Setter 注入 | 适合可选依赖 |
+| 字段注入 | 写法简单，但依赖不显式、测试不方便 |
 
-# Bean 注入方式
-主要：构造器注入、Setter 注入、字段注入
-
-## 构造器注入
 ```java
 @Service
 public class UserService {
-
     private final UserDao userDao;
 
     public UserService(UserDao userDao) {
@@ -192,452 +70,150 @@ public class UserService {
 }
 ```
 
-优点：依赖明确、适合必需依赖、可以使用 final、方便测试、对象创建完成即处于完整状态
+依赖注入常见注解：
 
-通常：优先推荐
+| 注解 | 作用 |
+| --- | --- |
+| `@Autowired` | 主要按类型注入 |
+| `@Qualifier` | 同类型多个 Bean 时指定候选 |
+| `@Resource` | 默认更偏按名称注入 |
+| `@Value` | 注入配置值或表达式 |
 
-## Setter 注入
-```java
-@Service
-public class UserService {
+### Scope 与线程安全
 
-    private UserDao userDao;
+- `singleton`：默认，一个 IOC Container 中一个 `BeanDefinition` 通常共享一个实例。
+- `prototype`：每次获取或依赖解析都可以创建新实例；Spring 负责创建和初始化，但通常不继续管理其销毁。
+- Web 常见还有 `request`、`session`、`application`。
 
-    @Autowired
-    public void setUserDao(UserDao userDao) {
-        this.userDao = userDao;
-    }
-}
-```
+> `singleton ≠ JVM 全局单例 ≠ 线程安全`
 
-适合：可选依赖、需要后续修改的依赖
+线程安全取决于 Bean 是否存在共享可变状态；Service / DAO 通常设计为无状态 Bean。
 
-## 字段注入
-```java
-@Autowired
-private UserDao userDao;
-```
+### Bean 生命周期
 
-优点：代码简单
+主线：
 
-缺点：依赖不够显式、不利于不可变设计、单元测试不方便
-
-# @Autowired
-@Autowired：Spring 提供
-
-主要：按类型查找 Bean
-
-流程：
-
-```text
-字段类型
- ↓
-Spring Container
- ↓
-找到候选 Bean
-```
-
-如果：只有 1 个 → 直接注入
-
-如果：多个 → 进一步根据 @Primary / @Qualifier / 名称等判断
-
-例如：
-
-```java
-@Autowired
-@Qualifier("mysqlUserDao")
-private UserDao userDao;
-```
-
-# @Resource
-@Resource：Jakarta / Java 标准注解体系
-
-现代 Spring 常见：`jakarta.annotation.Resource`
-
-主要特点：默认更偏向按名称匹配、找不到时再进行类型匹配
-
-例如：
-
-```java
-@Resource
-private UserDao userDao;
-```
-
-## @Autowired vs @Resource
-```text
-@Autowired
-→ Spring
-→ 主要按类型
-
-@Resource
-→ Jakarta 标准
-→ 默认更偏按名称
-```
-
-如果有多个同类型 Bean：@Autowired + @Qualifier
-
-是常见解决方式。
-
-# Bean Scope
-常见：singleton、prototype、request、session、application、websocket
-
-最核心：singleton、prototype
-
-## singleton
-默认 Scope：`singleton`
-
-含义：
-
-> **同一个 Spring IOC Container 中，一个 BeanDefinition 通常只有一个共享实例。**
-
-注意：Spring Singleton ≠ JVM 全局绝对只有一个实例
-
-不同容器：可以有不同实例
-
-## prototype
-每次 getBean、或发生依赖解析、都可以创建新实例
-
-Spring 主要负责：创建、初始化
-
-但通常：不会像 singleton 一样完整管理 prototype Bean 的销毁
-
-# Bean 线程安全
-重要：singleton ≠ 线程安全
-
-线程安全取决于：Bean 内部、有没有共享可变状态
-
-## 无状态 Bean
-例如：
-
-```java
-@Service
-public class UserService {
-
-    public User getById(Long id) {
-        // 局部变量
-        return ...
-    }
-}
-```
-
-没有：共享可变成员变量
-
-通常：可以被多个线程安全使用
-
-Service / DAO 常设计为：无状态
-
-## 有状态 Bean
-```java
-@Service
-public class UserService {
-    private int count;
-}
-```
-
-多个线程：同时修改 count
-
-就可能产生：线程安全问题
-
-解决思路：避免共享可变状态、使用线程安全结构、合理同步、重新设计作用域
-
-不是简单：改 prototype、就一定解决所有并发问题
-
-一句话：
-
-> **Spring 只管理 Bean 生命周期，不替你的可变成员变量自动保证线程安全。**
-
-# Bean 生命周期
-## 主流程
 ```text
 BeanDefinition
-   ↓
-实例化
-   ↓
-属性填充 / DI
-   ↓
-Aware 回调
-   ↓
-BeanPostProcessor.before
-   ↓
-初始化方法
-   ↓
-BeanPostProcessor.after
-   ↓
-AOP Proxy 等增强
-   ↓
-Bean 可使用
-   ↓
-容器关闭
-   ↓
-销毁
+→ 实例化（执行构造方法）
+→ 属性注入 / DI
+→ Aware 等初始化前回调
+→ BeanPostProcessor Before（相关后处理器会触发 @PostConstruct）
+→ afterPropertiesSet()
+→ init-method
+→ BeanPostProcessor After
+→ Bean / Proxy
+→ 销毁
 ```
 
-## 1. 实例化
-Spring 根据：`BeanDefinition`
+- **实例化**：根据 `BeanDefinition` 创建对象，构造方法在这一阶段执行。
+- **属性注入**：完成 `@Autowired`、`@Resource`、Setter 等依赖注入。
+- **初始化回调**：常见顺序为 `@PostConstruct → InitializingBean.afterPropertiesSet() → init-method`。
+- **BeanPostProcessor After**：可以返回包装后的对象，Spring AOP 代理通常与这一阶段密切相关。
+- **销毁**：容器关闭时常见顺序为 `@PreDestroy → DisposableBean.destroy() → destroy-method`。
 
-创建对象。
+详细解释见：`spring-bean-lifecycle.md`。
 
-可能使用：构造器、反射、工厂方法
+## 循环依赖与三级缓存
 
-## 2. 属性填充
-例如：@Autowired、@Resource、Setter
-
-在这一阶段完成依赖注入。
-
-经典源码学习中常看到：`populateBean()`
-
-## 3. Aware
-如果 Bean 实现：BeanNameAware、BeanFactoryAware、ApplicationContextAware、...
-
-Spring 会把容器相关对象回调给 Bean。
-
-## 4. BeanPostProcessor Before
-`postProcessBeforeInitialization()`
-
-在初始化方法之前处理 Bean。
-
-## 5. 初始化
-常见顺序理解：
+循环依赖：
 
 ```text
-@PostConstruct
-   ↓
-InitializingBean.afterPropertiesSet()
-   ↓
-自定义 init-method
+A → B → A
 ```
 
-不要过度依赖具体细节顺序做业务逻辑。
+- **构造器循环依赖**：A 尚未实例化完成就需要 B，没有可提前暴露的 A，三级缓存无法直接解决。
+- **Setter / Field 循环依赖**：经典 singleton 场景可通过“提前暴露引用”解决。
 
-## 6. BeanPostProcessor After
-`postProcessAfterInitialization()`
+| 缓存 | 内容 |
+| --- | --- |
+| `singletonObjects` | 一级缓存：完整初始化完成的 Bean |
+| `earlySingletonObjects` | 二级缓存：已经生成的 Early Reference |
+| `singletonFactories` | 三级缓存：用于按需生成 Early Reference 的 `ObjectFactory` |
 
-AOP：代理对象生成
+完整流程：
 
-通常与 BeanPostProcessor 体系密切相关。
-
-## 7. 销毁
-容器关闭时，singleton Bean 可能执行：
-
-```text
-@PreDestroy
-   ↓
-DisposableBean.destroy()
-   ↓
-自定义 destroy-method
-```
-
-# 循环依赖
-## 什么是循环依赖
-A → 依赖 B；B → 依赖 A
-
-即：A → B → A
-
-## 构造器循环依赖
-例如：
-
-```java
-class A {
-    A(B b) {}
-}
-
-class B {
-    B(A a) {}
-}
-```
-
-流程：创建 A → 构造器必须先有 B；创建 B → 构造器必须先有 A
-
-此时：A、B 都还没有实例化完成
-
-没有对象可以提前暴露。
-
-所以经典情况下：构造器循环依赖 → 无法通过三级缓存直接解决
-
-可能出现：`BeanCurrentlyInCreationException`
-
-## Setter / Field 循环依赖
-经典 singleton 场景：A 已经完成实例化、但还没有完成属性注入
-
-此时 Spring 可以：提前暴露 A 的引用
-
-供 B 注入。
-
-# 三级缓存
-经典 Spring 单例缓存：一级：、singletonObjects、二级：、earlySingletonObjects、三级：、singletonFactories
-
-## 一级缓存
-`singletonObjects`
-
-保存：完全初始化完成的 singleton Bean
-
-最终正常 Bean 都进入一级缓存。
-
-## 二级缓存
-`earlySingletonObjects`
-
-保存：已经生成的 Early Bean Reference
-
-也就是：提前暴露的 Bean / Proxy 引用
-
-## 三级缓存
-`singletonFactories`
-
-保存：`ObjectFactory`
-
-它可以：按需生成 Early Reference
-
-为什么不直接只用二级缓存：因为某些 Bean、需要考虑 AOP Proxy
-
-三级缓存可以：延迟决定、到底暴露原对象还是代理相关引用
-
-## A ↔ B 经典流程
 ```text
 创建 A
-   ↓
+ ↓
 A 实例化完成
-   ↓
-A 的 ObjectFactory 放三级缓存
-   ↓
-A 需要 B
-   ↓
-创建 B
-   ↓
+ ↓
+A 的 ObjectFactory 放入三级缓存
+ ↓
+A 需要 B → 创建 B
+ ↓
 B 需要 A
-   ↓
-一级缓存没有 A
-   ↓
-二级缓存没有 A
-   ↓
-三级缓存找到 A Factory
-   ↓
-生成 A Early Reference
-   ↓
-放入二级缓存
-   ↓
-B 注入 A
-   ↓
-B 初始化完成
-   ↓
-B 放一级缓存
-   ↓
+ ↓
+查一级缓存：没有 A
+ ↓
+查二级缓存：没有 A
+ ↓
+查三级缓存：找到 A Factory
+ ↓
+Factory 生成 A Early Reference
+ ↓
+A Early Reference 放入二级缓存
+同时移除 A 的三级 Factory
+ ↓
+B 注入 A Early Reference
+ ↓
+B 初始化完成 → 放入一级缓存
+ ↓
 A 注入 B
-   ↓
-A 初始化完成
-   ↓
-A 放一级缓存
+ ↓
+A 初始化完成 → 放入一级缓存
+ ↓
+清理 A 的二级 / 三级缓存
 ```
 
-## 当前工程如何看循环依赖
-三级缓存主要用于：理解 Spring IOC 内部机制
+核心关系：
 
-工程实践：优先避免循环依赖
-
-解决思路：重新划分职责、提取公共依赖、事件机制、@Lazy、ObjectProvider、Setter 注入
-
-Spring Boot 新版本默认通常：不鼓励允许循环引用
-
-不要把：三级缓存
-
-当作正常架构设计手段。
-
-# Spring AOP
-## AOP
-AOP：Aspect-Oriented Programming、面向切面编程
-
-解决：多个业务方法、都需要相同公共逻辑
-
-例如：日志、事务、权限、性能监控、缓存、审计
-
-如果直接写业务：业务代码 + 日志 + 事务 + 权限
-
-会造成：重复、耦合
-
-AOP：公共逻辑、抽成 Aspect
-
-## 核心概念
-### Aspect
-切面
-
-公共逻辑的模块。
-
-### Join Point
-连接点
-
-可以被增强的位置。
-
-Spring AOP 中最常关注：方法执行
-
-### Pointcut
-切点
-
-决定：哪些 Join Point、需要增强
-
-### Advice
-通知
-
-决定：什么时候增强 + 增强什么
-
-常见：@Before、@After、@AfterReturning、@AfterThrowing、@Around
-
-## AOP 执行流程
 ```text
-调用者
-   ↓
+三级 ObjectFactory
+→ 第一次需要提前引用时生成 Early Reference
+→ 放入二级缓存
+→ Bean 完整初始化后进入一级缓存
+```
+
+解决普通循环依赖的核心是**提前暴露引用**；第三级 `ObjectFactory` 还提供了按需生成 Early Reference 的机会，存在 AOP 时可参与生成提前代理引用。
+
+注意：这套机制只针对特定的 singleton 循环依赖。现代 Spring Boot 默认 `spring.main.allow-circular-references=false`，工程上仍应优先消除循环依赖。
+
+# 2. Spring AOP
+
+## AOP 原理
+
+AOP 用于把日志、事务、权限、监控、缓存等公共逻辑从业务代码中抽离。
+
+| 概念 | 含义 |
+| --- | --- |
+| Aspect | 切面，公共逻辑 |
+| Join Point | 可被增强的位置，Spring AOP 主要关注方法 |
+| Pointcut | 决定哪些方法需要增强 |
+| Advice | 决定何时增强、增强什么 |
+
+常见 Advice：`@Before`、`@After`、`@AfterReturning`、`@AfterThrowing`、`@Around`。
+
+```text
+Caller
+  ↓
 Proxy
-   ↓
-Interceptor / Advice
-   ↓
+  ↓
+Advice / Interceptor
+  ↓
 Target Method
-   ↓
-返回 Proxy
-   ↓
-调用者
 ```
 
-# JDK 动态代理
-适合：目标对象实现接口
+## 动态代理
 
-核心：Proxy + InvocationHandler
+| 方式 | 原理 | 限制 |
+| --- | --- | --- |
+| JDK Proxy | 基于接口，`Proxy + InvocationHandler` | 依赖接口代理能力 |
+| CGLIB | 生成目标类子类并重写方法 | `final class` 不能继承，`final/private` 方法不能普通重写增强 |
 
-代理对象：实现相同接口
+不要死记“有接口一定 JDK、没接口一定 CGLIB”，实际还受配置和代理策略影响。
 
-流程：
-
-```text
-接口方法调用
-   ↓
-InvocationHandler.invoke()
-   ↓
-增强逻辑
-   ↓
-目标方法
-```
-
-# CGLIB 代理
-如果需要基于类代理：生成目标类的子类
-
-通过：Override 方法
-
-插入增强逻辑。
-
-限制：final class → 不能继承；final method → 不能 override；private method → 不能 override
-
-因此这些方法：无法通过普通 CGLIB 子类代理方式增强
-
-## JDK vs CGLIB
-JDK Proxy → 基于接口；CGLIB → 基于继承
-
-Spring 会根据：配置、目标类型、代理方式
-
-选择合适机制。
-
-不要简单记：有接口永远 JDK、没接口永远 CGLIB
-
-因为代理策略还可以人为配置。
-
-# 自调用问题
-假设：
+## 自调用问题
 
 ```java
 public void methodA() {
@@ -645,67 +221,32 @@ public void methodA() {
 }
 
 @Transactional
-public void methodB() {
-}
+public void methodB() {}
 ```
 
 外部调用：
 
 ```text
-Caller
- ↓
+Caller → Proxy → methodA
+```
+
+但 `this.methodB()` 是对象内部直接调用，没有重新经过 Proxy，因此在常见的 **proxy 模式** 下，对 `methodB()` 的 AOP / 事务增强不会被再次触发。
+
+# 3. Spring 事务
+
+> Spring 声明式事务本质上建立在 AOP 代理之上。
+
+## 事务原理
+
+Spring 支持：
+
+- **编程式事务**：如 `TransactionTemplate`。
+- **声明式事务**：常用 `@Transactional`，基于 AOP。
+
+```text
+@Transactional
+   ↓
 Proxy
- ↓
-methodA
-```
-
-但：
-
-```text
-methodA
- ↓
-this.methodB()
-```
-
-是：目标对象内部直接调用
-
-没有重新经过：`Proxy`
-
-所以基于 Spring Proxy 的 AOP：methodB 增强可能不会重新触发
-
-这就是：Self Invocation、自调用问题
-
-# Spring 事务
-## 事务管理方式
-Spring 支持：编程式事务、声明式事务
-
-## 编程式事务
-常见：`TransactionTemplate`
-
-特点：事务逻辑、写在业务代码里
-
-优点：控制精细
-
-缺点：有代码侵入
-
-## 声明式事务
-常见：@Transactional
-
-特点：基于 AOP
-
-事务逻辑与业务代码分离。
-
-# 声明式事务原理
-核心：@Transactional、只是事务元数据
-
-Spring：
-
-```text
-读取事务属性
-   ↓
-为 Bean 创建 AOP Proxy
-   ↓
-方法调用进入 Proxy
    ↓
 TransactionInterceptor
    ↓
@@ -713,507 +254,135 @@ TransactionManager
    ↓
 开启 / 加入事务
    ↓
-调用目标方法
+Target Method
    ↓
 提交 / 回滚
 ```
 
-可以记：@Transactional + AOP Proxy + TransactionInterceptor + TransactionManager
+`TransactionManager` 负责开启、提交、回滚、挂起、恢复事务。
 
-## TransactionManager
-Spring 事务管理核心抽象：`TransactionManager`
+## @Transactional
 
-传统 JDBC 常见：`DataSourceTransactionManager`
+默认行为：
 
-它负责：开启事务、提交、回滚、挂起、恢复
+| 属性 | 默认 |
+| --- | --- |
+| 传播行为 | `REQUIRED` |
+| 隔离级别 | `DEFAULT` |
+| `readOnly` | `false` |
+| RuntimeException / Error | 默认回滚 |
+| Checked Exception | 默认不回滚 |
 
-# @Transactional 默认行为
-常见默认：Propagation → REQUIRED；Isolation → DEFAULT；readOnly → false
+Checked Exception 也希望回滚：
 
-回滚：RuntimeException；Error → 默认回滚；Checked Exception → 默认不回滚
-
-# rollbackFor
-如果希望 Checked Exception 也回滚：@Transactional(rollbackFor = Exception.class)
-
-表示：Exception、及其子类、满足条件时回滚
-
-# 事务失效 / 不符合预期
-## 1. Self Invocation
 ```java
-this.methodB();
+@Transactional(rollbackFor = Exception.class)
 ```
 
-没有经过 Proxy：@Transactional、可能不会触发
+## 事务传播与失效
 
-这是最核心场景之一。
-
-## 2. 异常被自己 catch
-```java
-@Transactional
-public void save() {
-    try {
-        ...
-    } catch (Exception e) {
-        // 吃掉异常
-    }
-}
-```
-
-代理看到：方法正常返回
-
-于是：可能提交事务
-
-解决：继续向外抛
-
-或显式：标记 rollback-only
-
-## 3. Checked Exception
-```java
-@Transactional
-public void save() throws IOException {
-    ...
-}
-```
-
-默认：Checked Exception、不一定触发回滚
-
-解决：@Transactional(rollbackFor = Exception.class)
-
-## 4. 非 Spring Bean
-```java
-UserService service = new UserService();
-```
-
-对象不是：`Spring Container`
-
-创建和管理。
-
-因此：没有 Spring AOP Proxy → 声明式事务不生效
-
-## 5. private 方法
-Proxy 模式下：`private method`
-
-不能作为普通代理拦截入口。
-
-所以：@Transactional、不应依赖 private 方法
-
-## 6. 非 public 方法的版本区别
-不要死记：@Transactional 只能 public
-
-当前 Spring 6+：Class-based Proxy → protected，package-private；也可以被事务代理处理
-
-但是：Interface-based Proxy → 事务方法必须是接口中的 public 方法
-
-同时：Self Invocation、仍然绕过 Proxy
-
-所以日常建议：事务边界优先放在 public Service 方法
-
-最清晰。
-
-## 7. final
-CGLIB：通过子类 override
-
-因此：final class、final method
-
-无法以普通 CGLIB 子类代理方式增强。
-
-## 8. 新线程
-本地事务通常：绑定当前线程
-
-因此：父线程事务、不会自动传递给新线程
-
-注意：新线程通过另一个 Spring Proxy、调用 @Transactional 方法
-
-可以：开启它自己的事务
-
-但不是：自动加入原线程事务
-
-## 9. 数据库不支持事务
-例如：`MySQL MyISAM`
-
-本身不支持事务。
-
-Spring：无法凭空提供数据库事务能力
-
-# 事务传播行为
-传播行为解决：
-
-> **一个事务方法调用另一个事务方法时，新的方法应该加入、创建、挂起还是拒绝事务。**
-
-七种：
+### 传播行为
 
 | 类型 | 行为 |
 | --- | --- |
-| REQUIRED | 有事务就加入，没有就新建 |
-| SUPPORTS | 有事务就加入，没有就非事务执行 |
-| MANDATORY | 必须有事务，否则抛异常 |
-| REQUIRES_NEW | 永远新建事务，原事务挂起 |
-| NOT_SUPPORTED | 非事务执行，有事务则挂起 |
-| NEVER | 非事务执行，有事务则抛异常 |
-| NESTED | 有事务则嵌套执行，没有则类似 REQUIRED |
+| `REQUIRED` | 有事务就加入，没有就新建 |
+| `SUPPORTS` | 有事务就加入，没有就非事务执行 |
+| `MANDATORY` | 必须有事务，否则异常 |
+| `REQUIRES_NEW` | 新建事务，原事务挂起 |
+| `NOT_SUPPORTED` | 非事务执行，有事务则挂起 |
+| `NEVER` | 非事务执行，有事务则异常 |
+| `NESTED` | 有事务则嵌套执行，没有则类似 REQUIRED |
 
-## REQUIRED
-默认：当前有事务 → 加入；当前无事务 → 创建
-
-## REQUIRES_NEW
-当前有事务 → 挂起；新建一个独立事务
-
-内外事务：提交 / 回滚相对独立
-
-## NESTED
-当前存在事务：在嵌套事务中执行
-
-通常依赖：`Savepoint`
-
-实际能力取决于：TransactionManager、数据库驱动、底层资源
-
-# Spring MVC
-## 请求流程
-核心：
+重点记：
 
 ```text
-Client
-   ↓
-Filter
-   ↓
-DispatcherServlet
-   ↓
-HandlerMapping
-   ↓
-HandlerInterceptor
-   ↓
-Controller
-   ↓
-Service
-   ↓
-返回结果
-   ↓
-HandlerInterceptor
-   ↓
-DispatcherServlet
-   ↓
-Filter
-   ↓
-Client
+REQUIRED
+→ 默认
+→ 有就加入，没有就新建
+
+REQUIRES_NEW
+→ 永远新建
+→ 原事务挂起
+
+NESTED
+→ 常通过 Savepoint 实现
 ```
 
-# Filter vs Interceptor
-## Filter
-Filter：Servlet 规范
+### 常见事务失效 / 不符合预期
 
-作用位置：Servlet 外层
+| 场景 | 原因 |
+| --- | --- |
+| `this` 自调用 | 没经过 Proxy |
+| 异常被自己 catch | 代理可能看到正常返回 |
+| Checked Exception 未配 `rollbackFor` | 默认不一定回滚 |
+| 对象不是 Spring Bean | 没有 Spring AOP Proxy |
+| `private` 方法 | 不能作为普通代理拦截入口 |
+| CGLIB `final` 限制 | 不能通过子类重写增强 |
+| 新线程 | 命令式事务通常绑定当前线程，不会自动传播到新线程 |
+| 数据库不支持事务 | Spring 无法凭空提供事务能力 |
 
-可以处理：编码、跨域、日志、鉴权、包装 Request / Response
+方法可见性要区分代理方式：Spring 6+ 的类代理可支持 `protected` / package-private 事务方法；JDK 接口代理要求事务方法是接口中的 `public` 方法。日常事务边界放在 `public Service` 方法最清晰。
 
-## Interceptor
-Interceptor：Spring MVC、HandlerInterceptor
+# 4. Spring MVC
 
-作用于：`Controller Handler`
+## 请求流程
 
-常见方法：preHandle、postHandle、afterCompletion
+Spring MVC 核心链路：
 
-适合：登录校验、Controller 日志、权限判断、耗时统计
-
-## 执行关系
 ```text
-Request
- ↓
+Client
+  ↓
 Filter
- ↓
+  ↓
 DispatcherServlet
- ↓
-Interceptor.preHandle
- ↓
+  ↓
+HandlerMapping
+  ↓
+找到 Handler + Interceptor
+  ↓
+HandlerAdapter
+  ↓
 Controller
- ↓
-Interceptor.postHandle
- ↓
-Interceptor.afterCompletion
- ↓
-Filter
- ↓
+  ↓
+返回值处理
+  ├─ HttpMessageConverter（JSON / @ResponseBody）
+  └─ ViewResolver / View（页面）
+  ↓
 Response
 ```
 
-一句话：Filter → Servlet 层；Interceptor → Spring MVC 层
+`DispatcherServlet` 是前端控制器；`HandlerMapping` 负责找到处理器，`HandlerAdapter` 负责以统一方式调用对应 Handler。Controller 中通常再调用 Service 完成业务逻辑。
 
-# Spring Boot
-## @SpringBootApplication
-核心：@SpringBootApplication
+异常处理时还可能进入 `HandlerExceptionResolver`。
 
-可以重点理解成：@SpringBootConfiguration + @ComponentScan + @EnableAutoConfiguration
+## Filter / Interceptor
 
-## @SpringBootConfiguration
-本质：@Configuration
+| 类型 | 所属 | 常见用途 |
+| --- | --- | --- |
+| Filter | Servlet 规范 | 编码、跨域、日志、鉴权、包装 Request/Response |
+| Interceptor | Spring MVC | Controller 前后，登录校验、权限、日志、耗时统计 |
 
-表示：这是 Spring Boot 主配置类
-
-## @ComponentScan
-默认：扫描启动类所在包、以及子包
-
-所以启动类通常放在：项目较上层包
-
-## @EnableAutoConfiguration
-Spring Boot 自动配置核心入口。
-
-作用：根据 Classpath、已有 Bean、配置属性、运行环境
-
-自动创建合适的 Bean。
-
-# 自动配置原理
-主线：
+Interceptor 三个核心回调：
 
 ```text
-@SpringBootApplication
-   ↓
-@EnableAutoConfiguration
-   ↓
-加载 AutoConfiguration Candidates
-   ↓
-@Conditional...
-   ↓
-条件成立
-   ↓
-创建配置中的 Bean
+preHandle()
+→ Handler 执行前
+
+postHandle()
+→ Handler 执行后
+
+afterCompletion()
+→ 整个请求完成后
 ```
 
-## AutoConfiguration.imports
-现代 Spring Boot 自定义自动配置候选类通常声明在：META-INF/spring/、org.springframework.boot.autoconfigure.AutoConfiguration.imports
+安全鉴权通常优先使用 Spring Security / Filter 链，而不是只依赖 MVC Interceptor。
 
-里面列出：`AutoConfiguration Class`
+# 5. Spring Boot
 
-# 条件装配
-自动配置不是：所有配置类全部无条件生效
+## 启动与自动配置
 
-而是大量使用：@Conditional...
+`@SpringBootApplication` 重点理解为：
 
-## @ConditionalOnClass
-Classpath 中存在指定类 → 条件成立
-
-例如：存在 DataSource 类
-
-才考虑数据库相关自动配置。
-
-## @ConditionalOnMissingBean
-容器里没有用户自己定义的 Bean → 自动配置才创建默认 Bean
-
-这就是：
-
-> **Spring Boot 自动配置“用户配置优先”的重要机制。**
-
-## @ConditionalOnProperty
-根据：配置文件属性
-
-决定是否装配。
-
-例如：`feature.enabled=true`
-
-## 自动配置一句话
-> **Spring Boot 自动配置 = 候选配置类 + 条件判断 + 默认 Bean。**
-
-# Spring 常见注解
-## IOC
-```text
-@Component
-@Service
-@Repository
-@Controller
-@Configuration
-@Bean
-```
-
-### @Component
-通用组件。
-
-### @Service
-业务层组件。
-
-本质：@Component、语义化封装
-
-### @Repository
-DAO / Repository 组件。
-
-### @Controller
-Spring MVC Controller。
-
-### @RestController
-相当于常见组合：@Controller + @ResponseBody
-
-### @Configuration
-配置类。
-
-### @Bean
-把方法返回值：注册为 Spring Bean
-
-# DI 注解
-@Autowired、@Qualifier、@Resource、@Value
-
-## @Qualifier
-同类型多个 Bean 时：指定 Bean
-
-## @Value
-注入：配置值、表达式
-
-例如：
-
-```java
-@Value("${server.port}")
-private int port;
-```
-
-# AOP / Transaction
-```text
-@Aspect
-@Pointcut
-@Before
-@After
-@Around
-@Transactional
-@EnableTransactionManagement
-```
-
-# Spring MVC 常见注解
-```text
-@RequestMapping
-@GetMapping
-@PostMapping
-@PutMapping
-@DeleteMapping
-
-@RequestParam
-@PathVariable
-@RequestBody
-@RequestHeader
-
-@ResponseBody
-@RestController
-```
-
-## @RequestParam
-参数：`Query Parameter / Form Parameter`
-
-例如：`?id=1`
-
-## @PathVariable
-路径变量：`/users/{id}`
-
-## @RequestBody
-读取：`HTTP Request Body`
-
-常用于：JSON → Java Object
-
-# Spring Boot 常见注解
-```text
-@SpringBootApplication
-@EnableAutoConfiguration
-@ConfigurationProperties
-@ConditionalOnClass
-@ConditionalOnMissingBean
-@ConditionalOnProperty
-```
-
-# 速记
-## IOC / DI
-IOC → 对象交给容器；DI → 容器把依赖塞给对象
-
-## Bean
-```text
-@Component / @Bean
-      ↓
-BeanDefinition
-      ↓
-实例化
-      ↓
-DI
-      ↓
-初始化
-      ↓
-BeanPostProcessor
-      ↓
-Proxy / Bean
-```
-
-## Scope
-singleton → 一个 IOC Container 内共享一个实例；prototype → 多次创建
-
-记：singleton ≠ 线程安全
-
-## 生命周期
-```text
-实例化
- ↓
-属性注入
- ↓
-Aware
- ↓
-BPP Before
- ↓
-初始化
- ↓
-BPP After
- ↓
-使用
- ↓
-销毁
-```
-
-## 三级缓存
-```text
-一级 singletonObjects
-→ 完整 Bean
-
-二级 earlySingletonObjects
-→ Early Reference
-
-三级 singletonFactories
-→ ObjectFactory
-```
-
-解决的是：经典 singleton、Setter / Field 循环依赖
-
-不是：所有循环依赖
-
-## AOP
-```text
-Caller
- ↓
-Proxy
- ↓
-Advice / Interceptor
- ↓
-Target
-```
-
-JDK → 接口代理；CGLIB → 子类代理
-
-## 事务
-```text
-@Transactional
-   ↓
-Proxy
-   ↓
-TransactionInterceptor
-   ↓
-TransactionManager
-   ↓
-Target Method
-```
-
-默认：REQUIRED；RuntimeException / Error → Rollback；Checked Exception → 默认不 Rollback
-
-## 常见事务失效
-```text
-this 自调用
-异常被 catch
-Checked Exception 未配置 rollbackFor
-对象不是 Spring Bean
-private 方法
-CGLIB final 限制
-跨线程不会继承原事务
-数据库本身不支持事务
-```
-
-## Spring Boot
 ```text
 @SpringBootApplication
 ├── @SpringBootConfiguration
@@ -1221,28 +390,113 @@ CGLIB final 限制
 └── @EnableAutoConfiguration
 ```
 
-自动配置：AutoConfiguration + @Conditional + 默认 Bean
+- `@SpringBootConfiguration`：Spring Boot 主配置类，本质基于 `@Configuration`。
+- `@ComponentScan`：默认扫描启动类所在包及其子包。
+- `@EnableAutoConfiguration`：开启自动配置。
 
-# 一句话总结
+```text
+@SpringBootApplication
+   ↓
+@EnableAutoConfiguration
+   ↓
+加载自动配置候选类
+   ↓
+@Conditional...
+   ↓
+条件成立
+   ↓
+注册默认 Bean
+```
+
+现代 Spring Boot 的自动配置类通常使用 `@AutoConfiguration`，候选类记录在 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`。
+
+## 条件装配
+
+| 注解 | 条件 |
+| --- | --- |
+| `@ConditionalOnClass` | Classpath 中存在指定类 |
+| `@ConditionalOnMissingBean` | 容器中不存在指定 Bean，体现“用户配置优先” |
+| `@ConditionalOnProperty` | 配置属性满足条件 |
+
+> **Spring Boot 自动配置 = 自动配置候选类 + 条件判断 + 默认 Bean；用户自己定义 Bean 后，很多默认配置会自动 back off。**
+
+# 6. 常见注解速查
+
+| 分类 | 注解 | 作用 |
+| --- | --- | --- |
+| IOC | `@Component` | 通用组件 |
+| IOC | `@Service` | 业务层组件 |
+| IOC | `@Repository` | DAO / Repository 组件 |
+| IOC | `@Controller` | MVC Controller |
+| IOC | `@RestController` | `@Controller + @ResponseBody` |
+| IOC | `@Configuration` | 配置类 |
+| IOC | `@Bean` | 方法返回值注册为 Bean |
+| DI | `@Autowired` | 主要按类型注入 |
+| DI | `@Qualifier` | 指定同类型 Bean |
+| DI | `@Primary` | 多个同类型 Bean 中指定默认优先候选 |
+| DI | `@Resource` | 默认更偏按名称注入 |
+| DI | `@Value` | 注入配置值 |
+| 生命周期 | `@PostConstruct` | 依赖注入后执行初始化方法 |
+| 生命周期 | `@PreDestroy` | Bean 销毁前执行清理方法 |
+| AOP | `@Aspect` | 定义切面 |
+| AOP | `@Pointcut` | 定义切点 |
+| AOP | `@Before` / `@After` / `@Around` | 定义 Advice |
+| 事务 | `@Transactional` | 声明事务 |
+| 事务 | `@EnableTransactionManagement` | 开启注解驱动事务管理 |
+| MVC | `@RequestMapping` | 通用请求映射 |
+| MVC | `@GetMapping` / `@PostMapping` | GET / POST 请求映射 |
+| MVC | `@PutMapping` / `@DeleteMapping` | PUT / DELETE 请求映射 |
+| MVC | `@RequestParam` | 获取 Query / Form 参数 |
+| MVC | `@PathVariable` | 获取路径变量 |
+| MVC | `@RequestBody` | 请求体 → Java 对象 |
+| MVC | `@RequestHeader` | 获取请求头 |
+| MVC | `@ResponseBody` | 返回值写入响应体 |
+| MVC | `@ExceptionHandler` | 处理 Controller 异常 |
+| MVC | `@ControllerAdvice` | 全局 Controller 增强 / 异常处理 |
+| Boot | `@SpringBootApplication` | Boot 启动入口组合注解 |
+| Boot | `@EnableAutoConfiguration` | 开启自动配置 |
+| Boot | `@ConfigurationProperties` | 配置属性绑定到 Java 对象 |
+| Boot | `@ConditionalOnClass` | 类存在时装配 |
+| Boot | `@ConditionalOnMissingBean` | Bean 不存在时装配 |
+| Boot | `@ConditionalOnProperty` | 配置满足条件时装配 |
+
+# 7. 速记
+
 ```text
 IOC
-→ 管对象
+→ 容器管对象
 
 DI
-→ 注依赖
+→ 容器注依赖
+
+Bean
+→ BeanDefinition → 实例化 → DI → 初始化 → Bean / Proxy
 
 Bean 生命周期
-→ 管对象从出生到销毁
+→ 实例化 → 属性注入 → 初始化 → 销毁
+
+三级缓存
+→ 一级：完整 Bean
+→ 二级：已生成 Early Reference
+→ 三级：ObjectFactory
+→ 三级生成 Early Reference 后转入二级，Bean 完成后进入一级
 
 AOP
-→ 代理增强
+→ Caller → Proxy → Advice → Target
+→ JDK：接口代理
+→ CGLIB：子类代理
 
-Transaction
-→ AOP 管事务边界
+事务
+→ @Transactional → Proxy → TransactionInterceptor → TransactionManager
+→ 默认 REQUIRED
+→ RuntimeException / Error 默认回滚
+→ Checked Exception 默认不回滚
 
 MVC
-→ 管 Web 请求
+→ Filter → DispatcherServlet → HandlerMapping → HandlerAdapter → Controller
 
 Boot
-→ 自动装配 Spring
+→ @SpringBootApplication
+→ @EnableAutoConfiguration
+→ AutoConfiguration + @Conditional + 默认 Bean
 ```
